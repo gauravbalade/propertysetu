@@ -66,6 +66,24 @@ public class PaymentService {
         return toResponse(saved);
     }
 
+    @Transactional(readOnly = true)
+    public PaymentResponse getLatestPayment(Long applicationId) {
+        RegistrationApplication application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new RuntimeException("Application not found"));
+        authorizationService.requireOwner(application.getUserAccount());
+        return paymentRepository.findByApplicationId(applicationId).stream()
+                .max((left, right) -> {
+                    LocalDateTime leftDate = left.getPaymentDate();
+                    LocalDateTime rightDate = right.getPaymentDate();
+                    if (leftDate == null && rightDate == null) return 0;
+                    if (leftDate == null) return -1;
+                    if (rightDate == null) return 1;
+                    return leftDate.compareTo(rightDate);
+                })
+                .map(this::toResponse)
+                .orElse(null);
+    }
+
     @Transactional
     public PaymentResponse verifyPayment(PaymentVerificationRequest request) {
         Payment payment = paymentRepository.findById(request.getPaymentId())

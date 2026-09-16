@@ -208,9 +208,15 @@ function App() {
             setStep("documents");
             setMessage(`Welcome back, ${data.username}. Your application is ready to continue.`);
           } else if (["SUBMITTED", "PAYMENT_PENDING"].includes(current.status)) {
+            const savedPayment = await request(`/api/payments/application/${current.id}`).catch(() => null);
+            setPayment(savedPayment);
             setStep("payment");
-            setMessage(`Welcome back, ${data.username}. Your application is ready for payment.`);
+            setMessage(savedPayment
+              ? `Welcome back, ${data.username}. Your payment is ready to continue.`
+              : `Welcome back, ${data.username}. Your application is ready for payment.`);
           } else {
+            const savedPayment = await request(`/api/payments/application/${current.id}`).catch(() => null);
+            setPayment(savedPayment);
             setStep("paymentComplete");
             setMessage(`Welcome back, ${data.username}. Your application status is ${current.status}.`);
           }
@@ -219,10 +225,13 @@ function App() {
           setMessage(`Welcome back, ${data.username}. Your saved owner profile is ready.`);
         } else {
           setStep("owner");
+          setMessage(`Welcome, ${data.username}. Let’s create your owner profile.`);
         }
       }
 
-      setMessage(`Welcome, ${data.username}.`);
+      if (data.role === "OFFICER" || data.role === "ADMIN") {
+        setMessage(`Welcome, ${data.username}. Officer workspace is ready.`);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
