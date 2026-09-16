@@ -8,8 +8,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.gaurav.property.dto.PaymentOrderRequest;
+import com.gaurav.property.dto.PaymentResponse;
 import com.gaurav.property.dto.PaymentVerificationRequest;
-import com.gaurav.property.entity.Payment;
 import com.gaurav.property.service.PaymentService;
 
 import jakarta.validation.Valid;
@@ -25,7 +25,7 @@ public class PaymentController {
     }
 
     @PostMapping("/order")
-    public ResponseEntity<Payment> createOrder(
+    public ResponseEntity<PaymentResponse> createOrder(
             @Valid @RequestBody PaymentOrderRequest request) {
 
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -33,7 +33,7 @@ public class PaymentController {
     }
 
     @PostMapping("/verify")
-    public ResponseEntity<Payment> verifyPayment(
+    public ResponseEntity<PaymentResponse> verifyPayment(
             @Valid @RequestBody PaymentVerificationRequest request) {
 
         return ResponseEntity.ok(

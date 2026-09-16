@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.gaurav.property.dto.VerificationRequest;
-import com.gaurav.property.entity.Verification;
+import com.gaurav.property.dto.VerificationResponse;
 import com.gaurav.property.service.VerificationService;
 
 import jakarta.validation.Valid;
@@ -23,7 +23,7 @@ public class VerificationController {
     }
 
     @PostMapping
-    public ResponseEntity<Verification> verifyApplication(
+    public ResponseEntity<VerificationResponse> verifyApplication(
             @Valid @RequestBody VerificationRequest request) {
 
         return ResponseEntity.ok(

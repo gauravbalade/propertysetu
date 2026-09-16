@@ -1,6 +1,7 @@
 package com.gaurav.property.service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 
@@ -24,6 +25,10 @@ public class PropertyService {
         this.propertyRepository = propertyRepository;
         this.ownerRepository = ownerRepository;
         this.authorizationService = authorizationService;
+    }
+
+    public List<Property> getCurrentProperties() {
+        return propertyRepository.findByOwnerUserAccountId(authorizationService.currentUser().getId());
     }
 
     public Property createProperty(PropertyRequest request) {

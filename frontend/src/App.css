@@ -655,6 +655,62 @@ button:disabled {
   line-height: 1.45;
 }
 
+.document-progress {
+  margin: 4px 0 0;
+  color: #667085;
+  font-size: 13px;
+}
+
+.saved-record-panel {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 22px;
+  padding: 16px;
+  border: 1px solid #dbe4f5;
+  border-radius: 14px;
+  background: #f7f9ff;
+}
+
+.saved-record-panel h2 {
+  margin: 0;
+  font-size: 19px;
+}
+
+.saved-record-panel p {
+  margin: 0;
+}
+
+.saved-record {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  color: #172033;
+  background: white;
+  border: 1px solid #dbe4f5;
+  text-align: left;
+}
+
+.saved-record:hover {
+  background: #eef3ff;
+}
+
+.saved-record span {
+  display: grid;
+  gap: 4px;
+}
+
+.saved-record small {
+  color: #667085;
+}
+
+.saved-record strong {
+  color: #2854ca;
+  font-size: 12px;
+}
+
 .officer-documents {
   display: grid;
   gap: 10px;

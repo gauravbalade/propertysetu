@@ -24,6 +24,13 @@ public class LocationService {
         this.authorizationService = authorizationService;
     }
 
+    public Location getLocation(Long propertyId) {
+        Property property = propertyRepository.findById(propertyId)
+                .orElseThrow(() -> new RuntimeException("Property not found"));
+        authorizationService.requireOwner(property.getOwner().getUserAccount());
+        return locationRepository.findByPropertyId(propertyId).orElse(null);
+    }
+
     public Location createLocation(LocationRequest request) {
 
         Property property = propertyRepository.findById(request.getPropertyId())

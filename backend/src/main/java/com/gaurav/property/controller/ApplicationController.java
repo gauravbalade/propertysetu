@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.gaurav.property.dto.ApplicationRequest;
 import com.gaurav.property.dto.ApplicationResponse;
-import com.gaurav.property.entity.RegistrationApplication;
 import com.gaurav.property.service.ApplicationService;
 
 import jakarta.validation.Valid;
@@ -32,18 +31,18 @@ public class ApplicationController {
     }
 
     @PostMapping
-    public ResponseEntity<RegistrationApplication> createApplication(
+    public ResponseEntity<ApplicationResponse> createApplication(
             @Valid @RequestBody ApplicationRequest request) {
 
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(applicationService.createApplication(request));
+                .body(applicationService.toResponse(applicationService.createApplication(request)));
     }
 
     @PostMapping("/{applicationId}/submit")
-    public ResponseEntity<RegistrationApplication> submitApplication(
+    public ResponseEntity<ApplicationResponse> submitApplication(
             @PathVariable Long applicationId) {
 
         return ResponseEntity.ok(
-                applicationService.submitApplication(applicationId));
+                applicationService.toResponse(applicationService.submitApplication(applicationId)));
     }
 }

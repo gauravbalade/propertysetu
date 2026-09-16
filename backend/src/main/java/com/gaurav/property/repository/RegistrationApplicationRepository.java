@@ -19,5 +19,8 @@ public interface RegistrationApplicationRepository
 
     List<RegistrationApplication> findByPropertyId(Long propertyId);
 
+    Optional<RegistrationApplication> findFirstByPropertyIdAndUserAccountIdAndStatusIn(
+            Long propertyId, Long userId, List<ApplicationStatus> statuses);
+
     boolean existsByApplicationNumber(String applicationNumber);
 }

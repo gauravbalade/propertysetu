@@ -47,6 +47,21 @@ public class ApplicationService {
                 .orElseThrow(() -> new RuntimeException("Property not found"));
         authorizationService.requireOwner(property.getOwner().getUserAccount());
 
+        List<ApplicationStatus> activeStatuses = List.of(
+                ApplicationStatus.DRAFT,
+                ApplicationStatus.SUBMITTED,
+                ApplicationStatus.PAYMENT_PENDING,
+                ApplicationStatus.PAID,
+                ApplicationStatus.UNDER_VERIFICATION,
+                ApplicationStatus.VERIFIED);
+        RegistrationApplication existing = applicationRepository
+                .findFirstByPropertyIdAndUserAccountIdAndStatusIn(
+                        property.getId(), user.getId(), activeStatuses)
+                .orElse(null);
+        if (existing != null) {
+            return existing;
+        }
+
         RegistrationApplication application = new RegistrationApplication();
         application.setApplicationNumber(
                 "REG-" + UUID.randomUUID().toString()
@@ -68,7 +83,7 @@ public class ApplicationService {
         return applications.stream().map(this::toResponse).toList();
     }
 
-    private ApplicationResponse toResponse(RegistrationApplication application) {
+    public ApplicationResponse toResponse(RegistrationApplication application) {
         return new ApplicationResponse(
                 application.getId(),
                 application.getApplicationNumber(),

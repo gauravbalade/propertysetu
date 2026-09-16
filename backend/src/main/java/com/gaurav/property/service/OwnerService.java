@@ -2,6 +2,8 @@ package com.gaurav.property.service;
 
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 import com.gaurav.property.dto.OwnerRequest;
 import com.gaurav.property.entity.Owner;
 import com.gaurav.property.entity.UserAccount;
@@ -22,6 +24,10 @@ public class OwnerService {
         this.ownerRepository = ownerRepository;
         this.userAccountRepository = userAccountRepository;
         this.authorizationService = authorizationService;
+    }
+
+    public Optional<Owner> getCurrentOwner() {
+        return ownerRepository.findByUserAccountId(authorizationService.currentUser().getId());
     }
 
     public Owner createOwner(OwnerRequest request) {

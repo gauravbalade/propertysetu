@@ -13,5 +13,7 @@ public interface PropertyRepository extends JpaRepository<Property, Long> {
 
     List<Property> findByOwnerId(Long ownerId);
 
+    List<Property> findByOwnerUserAccountId(Long userId);
+
     boolean existsByPropertyNumber(String propertyNumber);
 }

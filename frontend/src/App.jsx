@@ -18,6 +18,7 @@ function App() {
   const [property, setProperty] = useState(null);
   const [application, setApplication] = useState(null);
   const [payment, setPayment] = useState(null);
+  const [properties, setProperties] = useState([]);
   const [officerMode, setOfficerMode] = useState(false);
   const [applications, setApplications] = useState([]);
   const [applicantApplications, setApplicantApplications] = useState([]);
@@ -69,6 +70,7 @@ function App() {
   const [file, setFile] = useState(null);
   const [uploadedDocuments, setUploadedDocuments] = useState([]);
   const [submissionAcknowledged, setSubmissionAcknowledged] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const requiredDocumentTypes = ["IDENTITY_PROOF", "ADDRESS_PROOF", "PROPERTY_DOCUMENT"];
   const hasRequiredDocuments = requiredDocumentTypes.every(type =>
@@ -91,10 +93,19 @@ function App() {
       }
     });
 
+    if (response.status === 204) {
+      return null;
+    }
+
     const data = await response.json().catch(() => ({}));
 
+    if (response.status === 401 || response.status === 403) {
+      sessionStorage.removeItem("property_registration_token");
+      throw new Error("Your session expired or you are not allowed to do that. Please log in again.");
+    }
+
     if (!response.ok) {
-      throw new Error(data.message || data.error || "Request failed");
+      throw new Error(data.message || data.error || "Request failed. Please check your connection and try again.");
     }
 
     return data;
@@ -124,12 +135,14 @@ function App() {
   }
 
   function logout() {
+    setBusy(false);
     setUser(null);
     setOfficerMode(false);
     setOwner(null);
     setProperty(null);
     setApplication(null);
     setPayment(null);
+    setProperties([]);
     setApplications([]);
     setApplicantApplications([]);
     setSelectedApplication(null);
@@ -145,7 +158,9 @@ function App() {
 
   async function login(event) {
     event.preventDefault();
+    if (busy) return;
     clearMessages();
+    setBusy(true);
 
     try {
       const data = await request("/api/auth/login", {
@@ -160,19 +175,66 @@ function App() {
         setApplications(applicationsData);
         setOfficerMode(true);
       } else {
-        setApplicantApplications(await request("/api/applications"));
-        setStep("owner");
+        const savedApplications = await request("/api/applications");
+        const savedProperties = await request("/api/properties/me").catch(() => []);
+        const existingOwner = await request("/api/owners/me").catch(() => null);
+        setApplicantApplications(savedApplications || []);
+        setProperties(savedProperties || []);
+
+        if (existingOwner) {
+          setOwner(existingOwner);
+          setOwnerForm({
+            name: existingOwner.name || "",
+            address: existingOwner.address || "",
+            phone: existingOwner.phone || "",
+            identityNumber: existingOwner.identityNumber || ""
+          });
+        }
+
+        const current = [...(savedApplications || [])]
+          .filter(item => item.status !== "REJECTED")
+          .sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0))[0];
+        const currentProperty = current
+          ? (savedProperties || []).find(item => item.id === current.propertyId)
+          : null;
+
+        if (current && currentProperty) {
+          setApplication(current);
+          setProperty(currentProperty);
+          setPurpose(current.purpose || "");
+          if (current.status === "DRAFT") {
+            const documents = await request(`/api/applications/${current.id}/documents`).catch(() => []);
+            setUploadedDocuments(documents || []);
+            setStep("documents");
+            setMessage(`Welcome back, ${data.username}. Your application is ready to continue.`);
+          } else if (["SUBMITTED", "PAYMENT_PENDING"].includes(current.status)) {
+            setStep("payment");
+            setMessage(`Welcome back, ${data.username}. Your application is ready for payment.`);
+          } else {
+            setStep("paymentComplete");
+            setMessage(`Welcome back, ${data.username}. Your application status is ${current.status}.`);
+          }
+        } else if (existingOwner) {
+          setStep("property");
+          setMessage(`Welcome back, ${data.username}. Your saved owner profile is ready.`);
+        } else {
+          setStep("owner");
+        }
       }
 
       setMessage(`Welcome, ${data.username}.`);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
     }
   }
 
   async function register(event) {
     event.preventDefault();
+    if (busy) return;
     clearMessages();
+    setBusy(true);
 
     try {
       await request("/api/auth/register", {
@@ -187,12 +249,16 @@ function App() {
       setStep("login");
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
     }
   }
 
   async function createOwner(event) {
     event.preventDefault();
+    if (busy) return;
     clearMessages();
+    setBusy(true);
 
     try {
       const data = await request("/api/owners", {
@@ -208,12 +274,16 @@ function App() {
       setStep("property");
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
     }
   }
 
   async function createProperty(event) {
     event.preventDefault();
+    if (busy) return;
     clearMessages();
+    setBusy(true);
 
     try {
       const data = await request("/api/properties", {
@@ -228,36 +298,56 @@ function App() {
       });
 
       setProperty(data);
+      setProperties(previous => [...previous, data]);
       setMessage("Property created successfully.");
       setStep("location");
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
     }
   }
 
   async function createLocation(event) {
     event.preventDefault();
+    if (busy) return;
     clearMessages();
+    setBusy(true);
 
     try {
-      await request("/api/locations", {
-        method: "POST",
-        body: JSON.stringify({
-          propertyId: property.id,
-          ...locationForm
-        })
-      });
+      const existingLocation = await request(`/api/locations/property/${property.id}`).catch(() => null);
+      if (!existingLocation) {
+        await request("/api/locations", {
+          method: "POST",
+          body: JSON.stringify({
+            propertyId: property.id,
+            ...locationForm
+          })
+        });
+      } else {
+        setLocationForm({
+          address: existingLocation.address || "",
+          city: existingLocation.city || "",
+          district: existingLocation.district || "",
+          state: existingLocation.state || "",
+          pincode: existingLocation.pincode || ""
+        });
+      }
 
-      setMessage("Property location saved successfully.");
+      setMessage(existingLocation ? "Saved property location loaded." : "Property location saved successfully.");
       setStep("application");
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
     }
   }
 
   async function createApplication(event) {
     event.preventDefault();
+    if (busy) return;
     clearMessages();
+    setBusy(true);
 
     try {
       const data = await request("/api/applications", {
@@ -270,19 +360,30 @@ function App() {
       });
 
       setApplication(data);
-      setMessage("Registration application created.");
+      setApplicantApplications(previous => {
+        const withoutCurrent = previous.filter(item => item.id !== data.id);
+        return [data, ...withoutCurrent];
+      });
+      const documents = await request(`/api/applications/${data.id}/documents`).catch(() => []);
+      setUploadedDocuments(documents || []);
+      setMessage("Registration application ready.");
       setStep("documents");
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
     }
   }
 
   async function uploadDocument(event) {
     event.preventDefault();
+    if (busy) return;
     clearMessages();
+    setBusy(true);
 
     if (!file) {
       setError("Please choose a document first.");
+      setBusy(false);
       return;
     }
 
@@ -304,11 +405,15 @@ function App() {
       setMessage(`${documentType.replaceAll("_", " ")} uploaded successfully.`);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
     }
   }
 
   async function submitApplication() {
+    if (busy) return;
     clearMessages();
+    setBusy(true);
 
     try {
       const data = await request(
@@ -321,11 +426,15 @@ function App() {
       setStep("payment");
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
     }
   }
 
   async function createPayment() {
+    if (busy) return;
     clearMessages();
+    setBusy(true);
 
     try {
       const data = await request("/api/payments/order", {
@@ -340,11 +449,15 @@ function App() {
       setMessage("Test payment order created successfully.");
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
     }
   }
 
   async function completePayment() {
+    if (busy) return;
     clearMessages();
+    setBusy(true);
 
     try {
       const data = await request("/api/payments/verify", {
@@ -363,6 +476,8 @@ function App() {
       setStep("paymentComplete");
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -426,6 +541,9 @@ function App() {
       const current = application && data.find(item => item.id === application.id);
       if (current) {
         setApplication(current);
+      } else if (!application && data.length > 0) {
+        const latest = [...data].sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0))[0];
+        setApplication(latest);
       }
       setMessage("Application status refreshed.");
     } catch (err) {
@@ -538,7 +656,7 @@ function App() {
               onChange={e => update(setLoginForm, "password", e.target.value)}
               required
             />
-            <button type="submit">Login</button>
+            <button type="submit" disabled={busy}>{busy ? "Signing in…" : "Login"}</button>
           </form>
           <div className="auth-trust-row"><span>🔒 JWT-protected sessions</span><span>📄 Guided document workflow</span><span>✓ Officer review</span></div>
           <div className="auth-divider">New applicant?</div>
@@ -763,7 +881,7 @@ function App() {
             <input id="register-phone" name="phone" type="tel" autoComplete="tel" placeholder="Phone" value={registerForm.phone}
               onChange={e => update(setRegisterForm, "phone", e.target.value)} required />
 
-            <button type="submit">Create account</button>
+            <button type="submit" disabled={busy}>{busy ? "Creating account…" : "Create account"}</button>
             <button type="button" className="secondary-button" onClick={() => setStep("login")}>Back to login</button>
           </form>
         )}
@@ -779,13 +897,32 @@ function App() {
               onChange={e => update(setOwnerForm, "phone", e.target.value)} />
             <input placeholder="Identity number" value={ownerForm.identityNumber}
               onChange={e => update(setOwnerForm, "identityNumber", e.target.value)} />
-            <button type="submit">Save owner profile</button>
+            <div className="form-navigation">
+              <button type="submit" disabled={busy}>{busy ? "Saving…" : "Save owner profile"}</button>
+            </div>
           </form>
         )}
 
         {step === "property" && (
+          <>
+          {properties.length > 0 && (
+            <div className="saved-record-panel">
+              <h2>Continue with a saved property</h2>
+              <p className="muted">Select an existing property to avoid creating a duplicate record.</p>
+              {properties.map(item => (
+                <button type="button" className="saved-record" key={item.id} onClick={() => {
+                  setProperty(item);
+                  setMessage(`Using saved property ${item.propertyNumber}.`);
+                  setStep("location");
+                }}>
+                  <span><b>{item.propertyNumber}</b><small>{item.propertyType} · {item.area} sq. units</small></span>
+                  <strong>Continue</strong>
+                </button>
+              ))}
+            </div>
+          )}
           <form onSubmit={createProperty}>
-            <h2>Property details</h2>
+            <h2>{properties.length ? "Or add another property" : "Property details"}</h2>
             <input placeholder="Property number" value={propertyForm.propertyNumber}
               onChange={e => update(setPropertyForm, "propertyNumber", e.target.value)} />
             <select value={propertyForm.propertyType}
@@ -798,8 +935,12 @@ function App() {
               onChange={e => update(setPropertyForm, "area", e.target.value)} />
             <textarea placeholder="Description" value={propertyForm.description}
               onChange={e => update(setPropertyForm, "description", e.target.value)} />
-            <button type="submit">Save property</button>
+            <div className="form-navigation">
+              <button type="button" className="secondary-button" onClick={goToPreviousStep}>Previous</button>
+              <button type="submit" disabled={busy}>{busy ? "Saving…" : "Save property"}</button>
+            </div>
           </form>
+          </>
         )}
 
         {step === "location" && (
@@ -809,7 +950,10 @@ function App() {
               <input key={field} placeholder={field} value={locationForm[field]}
                 onChange={e => update(setLocationForm, field, e.target.value)} />
             ))}
-            <button type="submit">Save location</button>
+            <div className="form-navigation">
+              <button type="button" className="secondary-button" onClick={goToPreviousStep}>Previous</button>
+              <button type="submit" disabled={busy}>{busy ? "Saving…" : "Save location"}</button>
+            </div>
           </form>
         )}
 
@@ -829,17 +973,20 @@ function App() {
               onChange={e => setPurpose(e.target.value)}
               placeholder="Add a short purpose or transaction note" />
             <div className="decision-note"><b>Before continuing</b><span>Confirm stamp duty, fees, witnesses, identity requirements and office-specific documents from the official source.</span></div>
-            <button type="submit">Create guided application</button>
+            <div className="form-navigation">
+              <button type="button" className="secondary-button" onClick={goToPreviousStep}>Previous</button>
+              <button type="submit" disabled={busy}>{busy ? "Creating…" : "Create guided application"}</button>
+            </div>
           </form>
         )}
 
         {step === "documents" && (
           <form onSubmit={uploadDocument}>
             <h2>Document checklist</h2>
-            <p className="muted">Upload a clear synthetic demo scan. This records a document for workflow review; it does not prove legal authenticity or replace the registering office checklist.</p>
+            <p className="muted">Upload one clear synthetic demo file for each required category. Identity proof, address proof and property document are three separate uploads; one file cannot satisfy all three categories.</p>
             <div className="document-guide">
               <strong>Core workflow checklist</strong>
-              <span>Identity proof · Address proof · Sale/title or property paper</span>
+              <span>1. Identity proof · 2. Address proof · 3. Property document</span>
               <small>Additional documents may apply: witnesses, stamp-duty proof, tax receipts, NOC, 7/12/property card, POA or construction papers.</small>
             </div>
             <select value={documentType} onChange={e => setDocumentType(e.target.value)}>
@@ -855,7 +1002,8 @@ function App() {
             <input type="file" accept=".pdf,.jpg,.jpeg,.png"
               onChange={e => setFile(e.target.files[0])} />
             {file && <div className="file-selected">Selected: {file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB</div>}
-            <button type="submit">Upload document for review</button>
+            <button type="submit" disabled={busy}>{busy ? "Uploading…" : "Upload document for review"}</button>
+            <p className="document-progress"><b>{uploadedDocuments.length}/3 required categories complete</b> · You may replace a file by uploading again under the same category.</p>
             <div className="checklist-table">
               {["IDENTITY_PROOF", "ADDRESS_PROOF", "PROPERTY_DOCUMENT"].map(requiredType => {
                 const uploaded = uploadedDocuments.some(document => document.documentType === requiredType);
@@ -885,7 +1033,7 @@ function App() {
             <label className="acknowledgement"><input type="checkbox" checked={submissionAcknowledged} onChange={event => setSubmissionAcknowledged(event.target.checked)} /> <span>I understand this is an academic preparation workflow, not legal approval. I will confirm the final requirements with the registering office.</span></label>
             <div className="form-navigation">
               <button type="button" className="secondary-button" onClick={goToPreviousStep}>Previous</button>
-              <button onClick={submitApplication} disabled={!submissionAcknowledged || !hasRequiredDocuments}>Submit application for review</button>
+              <button onClick={submitApplication} disabled={!submissionAcknowledged || !hasRequiredDocuments || busy}>Submit application for review</button>
             </div>
           </div>
         )}

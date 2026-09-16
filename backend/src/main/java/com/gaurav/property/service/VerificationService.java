@@ -6,7 +6,9 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.gaurav.property.dto.ApplicationResponse;
 import com.gaurav.property.dto.VerificationRequest;
+import com.gaurav.property.dto.VerificationResponse;
 import com.gaurav.property.entity.Document;
 import com.gaurav.property.entity.RegistrationApplication;
 import com.gaurav.property.entity.UserAccount;
@@ -43,7 +45,7 @@ public class VerificationService {
     }
 
     @Transactional
-    public Verification verifyApplication(VerificationRequest request) {
+    public VerificationResponse verifyApplication(VerificationRequest request) {
 
         RegistrationApplication application =
                 applicationRepository.findById(request.getApplicationId())
@@ -111,6 +113,24 @@ public class VerificationService {
         Verification saved = verificationRepository.save(verification);
         auditService.record("APPLICATION_VERIFIED", "APPLICATION", application.getId(),
                 officer, "Verification status: " + request.getStatus().name());
-        return saved;
+        ApplicationResponse applicationResponse = new ApplicationResponse(
+                application.getId(),
+                application.getApplicationNumber(),
+                application.getUserAccount().getId(),
+                application.getUserAccount().getUsername(),
+                application.getUserAccount().getEmail(),
+                application.getProperty().getId(),
+                application.getProperty().getPropertyNumber(),
+                application.getPurpose(),
+                application.getApplicationDate(),
+                application.getStatus(),
+                application.getCreatedAt());
+        return new VerificationResponse(
+                saved.getId(),
+                applicationResponse,
+                saved.getVerificationDate(),
+                saved.getStatus(),
+                saved.getRemarks(),
+                saved.getVerifiedBy() == null ? null : saved.getVerifiedBy().getUsername());
     }
 }
