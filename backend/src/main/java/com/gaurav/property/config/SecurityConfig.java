@@ -6,14 +6,13 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.AuthenticationProvider;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -35,7 +34,7 @@ import jakarta.servlet.http.HttpServletResponse;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    @Value("${app.frontend.origin:http://localhost:5173}")
+    @Value("${FRONTEND_ORIGIN:http://localhost:5173}")
     private String frontendOrigin;
 
     @Bean
@@ -52,21 +51,38 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(frontendOrigin));
+
+        configuration.setAllowedOrigins(List.of(
+                frontendOrigin,
+                "https://frontend-six-amber-63.vercel.app",
+                "http://localhost:5173"
+        ));
+
         configuration.setAllowedMethods(List.of(
-                "GET", "POST", "PUT", "DELETE", "OPTIONS"));
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "OPTIONS"
+        ));
+
         configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true);
+        configuration.setAllowCredentials(false);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
+
         source.registerCorsConfiguration("/**", configuration);
+
         return source;
     }
 
     @Bean
-    public OncePerRequestFilter jwtAuthenticationFilter(JwtService jwtService) {
+    public OncePerRequestFilter jwtAuthenticationFilter(
+            JwtService jwtService) {
+
         return new OncePerRequestFilter() {
+
             @Override
             protected void doFilterInternal(
                     HttpServletRequest request,
@@ -78,8 +94,9 @@ public class SecurityConfig {
 
                 if (header != null && header.startsWith("Bearer ")) {
                     try {
-                        var claims = jwtService.parseToken(
-                                header.substring(7));
+                        String token = header.substring(7);
+
+                        var claims = jwtService.parseToken(token);
                         String username = claims.getSubject();
                         String role = claims.get("role", String.class);
 
@@ -88,10 +105,13 @@ public class SecurityConfig {
 
                         var authentication =
                                 new UsernamePasswordAuthenticationToken(
-                                        username, null, authorities);
+                                        username,
+                                        null,
+                                        authorities);
 
                         SecurityContextHolder.getContext()
                                 .setAuthentication(authentication);
+
                     } catch (Exception ignored) {
                         SecurityContextHolder.clearContext();
                     }
@@ -105,20 +125,27 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            OncePerRequestFilter jwtAuthenticationFilter) throws Exception {
+            OncePerRequestFilter jwtAuthenticationFilter)
+            throws Exception {
 
         http
             .csrf(csrf -> csrf.disable())
+
             .cors(cors -> cors.configurationSource(
                     corsConfigurationSource()))
+
             .sessionManagement(session -> session
-                    .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                    .sessionCreationPolicy(
+                            SessionCreationPolicy.STATELESS))
+
             .authorizeHttpRequests(auth -> auth
+
                     .requestMatchers(
                             "/api/auth/register",
                             "/api/auth/login",
                             "/error")
                     .permitAll()
+
                     .requestMatchers(
                             "/api/applications",
                             "/api/applications/**",
@@ -127,15 +154,27 @@ public class SecurityConfig {
                             "/api/properties/**",
                             "/api/locations/**",
                             "/api/documents/**")
-                    .hasAnyRole("APPLICANT", "OFFICER", "ADMIN")
-                    .requestMatchers("/api/verifications/**", "/api/audit/**")
-                    .hasAnyRole("OFFICER", "ADMIN")
+                    .hasAnyRole(
+                            "APPLICANT",
+                            "OFFICER",
+                            "ADMIN")
+
+                    .requestMatchers(
+                            "/api/verifications/**",
+                            "/api/audit/**")
+                    .hasAnyRole(
+                            "OFFICER",
+                            "ADMIN")
+
                     .anyRequest()
                     .authenticated())
+
             .httpBasic(basic -> basic.disable())
             .formLogin(form -> form.disable())
             .logout(logout -> logout.disable())
-            .addFilterBefore(jwtAuthenticationFilter,
+
+            .addFilterBefore(
+                    jwtAuthenticationFilter,
                     UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
