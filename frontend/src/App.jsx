@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Analytics } from "@vercel/analytics/react";
 import "./App.css";
 
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
@@ -848,7 +849,8 @@ function App() {
   }
 
   return (
-    <main className="app">
+    <>
+      <main className="app">
       <header className="header">
         <div>
           <p className="eyebrow">PROPERTYSETU · TRUSTED PROPERTY WORKFLOW</p>
@@ -1129,7 +1131,9 @@ function App() {
           </div>
         )}
       </section>
-    </main>
+      </main>
+      <Analytics />
+    </>
   );
 }
 
