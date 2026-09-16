@@ -2,19 +2,20 @@
 
 ## Local demonstration
 
-- [ ] MySQL service is running on the configured port.
-- [ ] Database exists and the backend connects successfully.
-- [ ] Backend tests pass with `D:\Spring-Workspace\property-registration-backend\.\mvnw.cmd test -q`.
-- [ ] Frontend lint and build pass.
-- [ ] Applicant can register and log in.
-- [ ] Applicant can create owner, property, location, and application.
-- [ ] Three required demo document categories can be uploaded.
-- [ ] Submission blocks when required categories are missing.
-- [ ] Test-mode payment is visibly labelled and completes.
-- [ ] Officer can review documents individually.
-- [ ] Officer can inspect accountability history.
-- [ ] Applicant can refresh and see the application status.
-- [ ] No real identity documents or credentials appear in screenshots or video.
+- [x] MySQL service is running on the configured port.
+- [x] Database exists and the backend connects successfully.
+- [x] Backend tests pass with the repository Maven wrapper.
+- [x] Frontend lint and build pass.
+- [x] Applicant can register and log in.
+- [x] Applicant can create or resume owner, property, location, and application.
+- [x] Three required demo document categories can be uploaded.
+- [x] Submission blocks when required categories are missing.
+- [x] Test-mode payment is visibly labelled and completes.
+- [x] Existing payment orders resume safely after login.
+- [x] Officer can review documents individually.
+- [x] Officer can inspect accountability history.
+- [x] Applicant can refresh and see the application status.
+- [x] No real identity documents or credentials appear in screenshots or video.
 
 ## Before public deployment
 

@@ -40,13 +40,19 @@ The response includes the safe user profile and a JWT. Passwords are never retur
 
 | Method | Endpoint | Purpose |
 |---|---|---|
+| GET | `/api/owners/me` | Resume the current applicant owner profile |
 | POST | `/api/owners` | Create owner profile |
+| GET | `/api/properties/me` | List the current applicant’s properties |
 | POST | `/api/properties` | Create property |
+| GET | `/api/locations/property/{propertyId}` | Resume a saved property location |
 | POST | `/api/locations` | Save property location |
-| POST | `/api/applications` | Create application |
+| GET | `/api/applications` | List only the current applicant’s applications, or all applications for officers |
+| POST | `/api/applications` | Create or reuse an active application |
 | POST | `/api/applications/{id}/documents` | Upload supporting document |
+| GET | `/api/applications/{id}/documents` | List application documents |
 | POST | `/api/applications/{id}/submit` | Submit application |
-| POST | `/api/payments/order` | Create test payment order |
+| GET | `/api/payments/application/{id}` | Resume the latest payment order |
+| POST | `/api/payments/order` | Create or reuse a test payment order |
 | POST | `/api/payments/verify` | Complete test payment |
 
 ## Officer workflow

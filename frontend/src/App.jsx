@@ -542,19 +542,50 @@ function App() {
     }
   }
 
+  async function selectApplicantApplication(selected) {
+    if (!selected) return;
+    setApplication(selected);
+    const savedProperty = properties.find(item => item.id === selected.propertyId);
+    if (savedProperty) {
+      setProperty(savedProperty);
+    }
+    setPurpose(selected.purpose || "");
+
+    try {
+      const [documents, savedPayment] = await Promise.all([
+        request(`/api/applications/${selected.id}/documents`).catch(() => []),
+        request(`/api/payments/application/${selected.id}`).catch(() => null)
+      ]);
+      setUploadedDocuments(documents || []);
+      setPayment(savedPayment);
+
+      if (selected.status === "DRAFT") {
+        setStep("documents");
+      } else if (["SUBMITTED", "PAYMENT_PENDING"].includes(selected.status)) {
+        setStep("payment");
+      } else if (["PAID", "UNDER_VERIFICATION", "VERIFIED", "COMPLETED"].includes(selected.status)) {
+        setStep("paymentComplete");
+      } else {
+        setStep("payment");
+      }
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   async function refreshApplicantApplications() {
     clearMessages();
     try {
       const data = await request("/api/applications");
-      setApplicantApplications(data);
+      setApplicantApplications(data || []);
       const current = application && data.find(item => item.id === application.id);
-      if (current) {
-        setApplication(current);
-      } else if (!application && data.length > 0) {
-        const latest = [...data].sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0))[0];
-        setApplication(latest);
+      const selected = current || (!application
+        ? [...(data || [])].sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0))[0]
+        : null);
+      if (selected) {
+        await selectApplicantApplication(selected);
       }
-      setMessage("Application status refreshed.");
+      setMessage("Application status and saved records refreshed.");
     } catch (err) {
       setError(err.message);
     }
@@ -852,7 +883,7 @@ function App() {
           </div>
           <div className="applicant-application-list">
             {applicantApplications.map(item => (
-              <button type="button" className={application?.id === item.id ? "applicant-application active" : "applicant-application"} key={item.id} onClick={() => setApplication(item)}>
+              <button type="button" className={application?.id === item.id ? "applicant-application active" : "applicant-application"} key={item.id} onClick={() => selectApplicantApplication(item)}>
                 <span><b>{item.applicationNumber}</b><small>{item.propertyNumber || "Property record"}</small></span>
                 <strong>{item.status}</strong>
               </button>

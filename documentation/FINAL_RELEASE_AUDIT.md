@@ -23,10 +23,13 @@ The final interface must continue to say that requirements vary by transaction, 
 
 ## Verification results
 
-- Frontend ESLint: passed.
-- Frontend production build: passed.
-- Packaged backend Maven tests: passed.
+- Frontend ESLint: passed after the final resume/payment integration.
+- Frontend production build: passed after the final resume/payment integration.
+- Packaged backend Maven tests: passed after the final payment idempotency change.
+- Backend compilation: passed with Java release 17.
 - Local MySQL connection: passed on development port 3307.
+- Applicant resume flow: owner, property, documents, application status and payment order restoration implemented.
+- Safe API response DTOs: application, payment and verification responses avoid nested password exposure.
 - Public credentials scan: no published demo officer or applicant credentials found in project source.
 
 ## Deployment gate

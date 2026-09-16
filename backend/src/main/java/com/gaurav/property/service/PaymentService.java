@@ -1,5 +1,6 @@
 package com.gaurav.property.service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -41,12 +42,32 @@ public class PaymentService {
                 .orElseThrow(() -> new RuntimeException("Application not found"));
         authorizationService.requireOwner(application.getUserAccount());
 
+        if (application.getStatus() == ApplicationStatus.PAID
+                || application.getStatus() == ApplicationStatus.UNDER_VERIFICATION
+                || application.getStatus() == ApplicationStatus.VERIFIED
+                || application.getStatus() == ApplicationStatus.COMPLETED) {
+            return paymentRepository.findByApplicationId(application.getId()).stream()
+                    .filter(existing -> existing.getPaymentStatus() == PaymentStatus.SUCCESS)
+                    .findFirst()
+                    .map(this::toResponse)
+                    .orElseThrow(() -> new RuntimeException("Payment is already completed"));
+        }
         if (application.getStatus() != ApplicationStatus.SUBMITTED
                 && application.getStatus() != ApplicationStatus.PAYMENT_PENDING) {
             throw new RuntimeException("Payment is available only for submitted applications");
         }
-        if (request.getAmount() == null || request.getAmount().doubleValue() <= 0) {
+        if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new RuntimeException("Payment amount must be greater than zero");
+        }
+
+        if (application.getStatus() == ApplicationStatus.PAYMENT_PENDING) {
+            Payment pending = paymentRepository.findByApplicationId(application.getId()).stream()
+                    .filter(existing -> existing.getPaymentStatus() == PaymentStatus.PENDING)
+                    .findFirst()
+                    .orElse(null);
+            if (pending != null) {
+                return toResponse(pending);
+            }
         }
 
         Payment payment = new Payment();
