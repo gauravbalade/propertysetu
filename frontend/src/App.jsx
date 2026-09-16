@@ -70,6 +70,11 @@ function App() {
   const [uploadedDocuments, setUploadedDocuments] = useState([]);
   const [submissionAcknowledged, setSubmissionAcknowledged] = useState(false);
 
+  const requiredDocumentTypes = ["IDENTITY_PROOF", "ADDRESS_PROOF", "PROPERTY_DOCUMENT"];
+  const hasRequiredDocuments = requiredDocumentTypes.every(type =>
+    uploadedDocuments.some(document => document.documentType === type)
+  );
+
   async function request(url, options = {}) {
     const token = user?.token || sessionStorage.getItem("property_registration_token");
     const isFormData = options.body instanceof FormData;
@@ -365,6 +370,23 @@ function App() {
     setter(previous => ({ ...previous, [field]: value }));
   }
 
+  function goToPreviousStep() {
+    const previousSteps = {
+      property: "owner",
+      location: "property",
+      application: "location",
+      documents: "application",
+      submit: "documents",
+      payment: "submit"
+    };
+
+    const previousStep = previousSteps[step];
+    if (previousStep) {
+      clearMessages();
+      setStep(previousStep);
+    }
+  }
+
   async function openOfficerDashboard() {
     clearMessages();
     try {
@@ -498,12 +520,18 @@ function App() {
             <h2>Welcome back</h2>
             <p className="muted">Use your account to continue your application or open the officer workspace.</p>
             <input
+              id="login-username"
+              name="username"
+              autoComplete="username"
               placeholder="Username"
               value={loginForm.username}
               onChange={e => update(setLoginForm, "username", e.target.value)}
               required
             />
             <input
+              id="login-password"
+              name="password"
+              autoComplete="current-password"
               type="password"
               placeholder="Password"
               value={loginForm.password}
@@ -726,13 +754,13 @@ function App() {
             <h2>Create applicant account</h2>
             <p className="muted">Create an account, then log in to begin registration.</p>
 
-            <input placeholder="Username" value={registerForm.username}
+            <input id="register-username" name="username" autoComplete="username" placeholder="Username" value={registerForm.username}
               onChange={e => update(setRegisterForm, "username", e.target.value)} required />
-            <input type="password" placeholder="Password" value={registerForm.password}
+            <input id="register-password" name="password" autoComplete="new-password" type="password" placeholder="Password" value={registerForm.password}
               onChange={e => update(setRegisterForm, "password", e.target.value)} required />
-            <input type="email" placeholder="Email" value={registerForm.email}
+            <input id="register-email" name="email" type="email" autoComplete="email" placeholder="Email" value={registerForm.email}
               onChange={e => update(setRegisterForm, "email", e.target.value)} required />
-            <input placeholder="Phone" value={registerForm.phone}
+            <input id="register-phone" name="phone" type="tel" autoComplete="tel" placeholder="Phone" value={registerForm.phone}
               onChange={e => update(setRegisterForm, "phone", e.target.value)} required />
 
             <button type="submit">Create account</button>
@@ -837,7 +865,11 @@ function App() {
                 </div>;
               })}
             </div>
-            {uploadedDocuments.length > 0 && <button type="button" className="secondary-button" onClick={() => setStep("submit")}>Continue to review</button>}
+            <div className="form-navigation">
+              <button type="button" className="secondary-button" onClick={goToPreviousStep}>Previous</button>
+              <button type="button" className="secondary-button" onClick={() => setStep("submit")} disabled={!hasRequiredDocuments}>Continue to review</button>
+            </div>
+            {!hasRequiredDocuments && <p className="validation-hint">Upload all three required documents to continue: identity proof, address proof and property document.</p>}
           </form>
         )}
 
@@ -851,7 +883,10 @@ function App() {
             </div>
             <p className="muted">Required demo documents: identity proof, address proof and property document. Additional documents may be required for your transaction.</p>
             <label className="acknowledgement"><input type="checkbox" checked={submissionAcknowledged} onChange={event => setSubmissionAcknowledged(event.target.checked)} /> <span>I understand this is an academic preparation workflow, not legal approval. I will confirm the final requirements with the registering office.</span></label>
-            <button onClick={submitApplication} disabled={!submissionAcknowledged || !["IDENTITY_PROOF", "ADDRESS_PROOF", "PROPERTY_DOCUMENT"].every(type => uploadedDocuments.some(document => document.documentType === type))}>Submit application for review</button>
+            <div className="form-navigation">
+              <button type="button" className="secondary-button" onClick={goToPreviousStep}>Previous</button>
+              <button onClick={submitApplication} disabled={!submissionAcknowledged || !hasRequiredDocuments}>Submit application for review</button>
+            </div>
           </div>
         )}
 
@@ -872,7 +907,10 @@ function App() {
                   <p><b>Gateway:</b> TEST_MODE</p>
                   <p><b>Payment status:</b> {payment.paymentStatus}</p>
                 </div>
-                <button onClick={completePayment}>Complete test payment</button>
+                <div className="form-navigation">
+                  <button type="button" className="secondary-button" onClick={goToPreviousStep}>Previous</button>
+                  <button onClick={completePayment}>Complete test payment</button>
+                </div>
               </>
             )}
           </div>

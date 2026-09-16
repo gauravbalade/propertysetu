@@ -637,6 +637,24 @@ button:disabled {
   opacity: 0.5;
 }
 
+.form-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.form-navigation .secondary-button {
+  margin: 0;
+}
+
+.validation-hint {
+  margin: 0;
+  color: #b42318;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .officer-documents {
   display: grid;
   gap: 10px;
