@@ -1,7 +1,12 @@
 import { useState } from "react";
 import "./App.css";
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:8080";
+const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
+
+const API = configuredApiUrl?.startsWith("http://") ||
+  configuredApiUrl?.startsWith("https://")
+  ? configuredApiUrl.replace(/\/+$/, "")
+  : "https://propertysetu-backend.onrender.com";
 
 function App() {
   const [step, setStep] = useState("login");
