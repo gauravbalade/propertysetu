@@ -1,0 +1,45 @@
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Java / Spring Boot
+backend/target/
+**/target/
+*.class
+*.log
+
+# IDE files
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+
+# Node / Vite
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Local uploads and generated data
+demo/uploads/*
+!demo/uploads/.gitkeep
+uploads/*
+!uploads/.gitkeep
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Secrets and private exports
+*.pem
+*.key
+*.p12
+*.jks
+secrets/
+private/
