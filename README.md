@@ -1,4 +1,32 @@
-# PropertySetu — Property Registration & Document Verification System
+# PropertySetu — Academic Property Application Workflow
+
+## About
+
+PropertySetu is a student-developed academic project that demonstrates
+a guided digital property application workflow.
+
+The project brings together:
+
+- Applicant information
+- Property details
+- Property location
+- Supporting documents
+- Application review
+- Test-mode payment
+
+### Important Notice
+
+PropertySetu is an academic demonstration project.
+
+It is NOT an official Government of Maharashtra,
+IGR Maharashtra, or government registration portal.
+
+No official government property registration is performed
+through this application.
+
+Payment functionality is provided only in test/demo mode
+for academic demonstration and does not represent a real
+government payment service.
 
 PropertySetu is a secure-by-design academic product concept that makes property registration easier to understand, submit, pay for, and verify through one transparent workflow.
 
