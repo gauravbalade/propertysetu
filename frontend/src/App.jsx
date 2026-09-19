@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Analytics } from "@vercel/analytics/react";
 import "./App.css";
 
@@ -86,6 +86,31 @@ function App() {
   const [uploadedDocuments, setUploadedDocuments] = useState([]);
   const [submissionAcknowledged, setSubmissionAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [backendStatus, setBackendStatus] = useState("checking");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function wakeBackend() {
+      setBackendStatus("checking");
+      try {
+        const response = await fetch(`${API}/api/health`, {
+          method: "GET",
+          cache: "no-store"
+        });
+        if (!response.ok) throw new Error("Backend health check failed");
+        if (!cancelled) setBackendStatus("online");
+      } catch {
+        if (!cancelled) setBackendStatus("unavailable");
+      }
+    }
+
+    void wakeBackend();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const requiredDocumentTypes = ["IDENTITY_PROOF", "ADDRESS_PROOF", "PROPERTY_DOCUMENT"];
   const hasRequiredDocuments = requiredDocumentTypes.every(type =>
@@ -100,13 +125,19 @@ function App() {
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     };
 
-    const response = await fetch(API + url, {
-      ...options,
-      headers: {
-        ...headers,
-        ...options.headers
-      }
-    });
+    let response;
+
+    try {
+      response = await fetch(API + url, {
+        ...options,
+        headers: {
+          ...headers,
+          ...options.headers
+        }
+      });
+    } catch {
+      throw new Error("We couldn't reach the PropertySetu backend. It may be waking up; please wait a few seconds and try again.");
+    }
 
     if (response.status === 204) {
       return null;
@@ -120,7 +151,15 @@ function App() {
     }
 
     if (!response.ok) {
-      throw new Error(data.message || data.error || "Request failed. Please check your connection and try again.");
+      if ([502, 503, 504].includes(response.status)) {
+        throw new Error("The PropertySetu backend is temporarily unavailable or waking up. Please wait a few seconds and try again.");
+      }
+
+      if (response.status === 401 && url === "/api/auth/login") {
+        throw new Error("Invalid username or password.");
+      }
+
+      throw new Error(data.message || data.error || "Request could not be completed. Please try again.");
     }
 
     return data;
@@ -254,11 +293,13 @@ function App() {
             if (current.status === "DRAFT") {
               const documents = await request(`/api/applications/${current.id}/documents`).catch(() => []);
               setUploadedDocuments(documents || []);
+              void loadAuditHistory(current.id);
               setStep("documents");
               setMessage(`Welcome back, ${data.username}. Your application is ready to continue.`);
             } else if (["SUBMITTED", "PAYMENT_PENDING"].includes(current.status)) {
               const savedPayment = await request(`/api/payments/application/${current.id}`).catch(() => null);
               setPayment(savedPayment);
+              void loadAuditHistory(current.id);
               setStep("payment");
               setMessage(savedPayment
                 ? `Welcome back, ${data.username}. Your payment is ready to continue.`
@@ -266,6 +307,7 @@ function App() {
             } else {
               const savedPayment = await request(`/api/payments/application/${current.id}`).catch(() => null);
               setPayment(savedPayment);
+              void loadAuditHistory(current.id);
               setStep("paymentComplete");
               setMessage(`Welcome back, ${data.username}. Your application status is ${current.status}.`);
             }
@@ -710,6 +752,7 @@ function App() {
       ]);
       setUploadedDocuments(documents || []);
       setPayment(savedPayment);
+      await loadAuditHistory(selected.id);
 
       if (selected.status === "DRAFT") {
         setStep("documents");
@@ -837,6 +880,12 @@ function App() {
               <button type="button" className="secondary-button" onClick={() => setShowAbout(true)}>See how it works</button>
             </div>
             <div className="trust-strip"><span>✓ JWT authentication</span><span>✓ Role-based access</span><span>✓ Document workflow</span><span>✓ Test-mode payment</span></div>
+            <div className={`backend-status ${backendStatus}`} role="status" aria-live="polite">
+              <span aria-hidden="true">●</span>
+              {backendStatus === "online" && "Backend ready"}
+              {backendStatus === "checking" && "Preparing backend…"}
+              {backendStatus === "unavailable" && "Backend temporarily unavailable"}
+            </div>
           </div>
           <div className="hero-home-visual">
             <img src="/propertysetu-hero.svg" alt="Illustration representing a guided property application workflow" />
@@ -1276,6 +1325,35 @@ function App() {
           </div>
         )}
       </section>
+
+      {application && (
+        <section className="card application-history-panel" aria-label="Application timeline">
+          <div className="timeline-heading">
+            <div>
+              <p className="eyebrow">APPLICATION MEMORY</p>
+              <h3>What has happened so far</h3>
+              <p className="muted">A timeline built from recorded application events. It does not claim verification that has not happened.</p>
+            </div>
+            <span>{auditEvents.length} event{auditEvents.length === 1 ? "" : "s"}</span>
+          </div>
+          {auditEvents.length === 0 ? (
+            <p className="muted">No application events have been recorded yet.</p>
+          ) : (
+            <div className="audit-list">
+              {auditEvents.map(event => (
+                <div className="audit-event" key={`applicant-audit-${event.id}`}>
+                  <div>
+                    <strong>{event.action.replaceAll("_", " ")}</strong>
+                    <small>{event.actorRole || "SYSTEM"}</small>
+                  </div>
+                  <time>{event.occurredAt ? new Date(event.occurredAt).toLocaleString("en-IN") : "-"}</time>
+                  {event.details && <p>{event.details}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {property && (
         <section className="property-identity-card" aria-label="Current property record">
