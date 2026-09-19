@@ -24,16 +24,19 @@ public class ApplicationService {
     private final PropertyRepository propertyRepository;
     private final DocumentRepository documentRepository;
     private final AuthorizationService authorizationService;
+    private final AuditService auditService;
 
     public ApplicationService(
             RegistrationApplicationRepository applicationRepository,
             PropertyRepository propertyRepository,
             DocumentRepository documentRepository,
-            AuthorizationService authorizationService) {
+            AuthorizationService authorizationService,
+            AuditService auditService) {
         this.applicationRepository = applicationRepository;
         this.propertyRepository = propertyRepository;
         this.documentRepository = documentRepository;
         this.authorizationService = authorizationService;
+        this.auditService = auditService;
     }
 
     public RegistrationApplication createApplication(ApplicationRequest request) {
@@ -73,7 +76,10 @@ public class ApplicationService {
         application.setStatus(ApplicationStatus.DRAFT);
         application.setCreatedAt(LocalDateTime.now());
 
-        return applicationRepository.save(application);
+        RegistrationApplication saved = applicationRepository.save(application);
+        auditService.record("APPLICATION_CREATED", "APPLICATION", saved.getId(),
+                user, "Draft application created for property " + property.getPropertyNumber());
+        return saved;
     }
 
     public List<ApplicationResponse> getAllApplications() {
@@ -126,6 +132,9 @@ public class ApplicationService {
         }
 
         application.setStatus(ApplicationStatus.SUBMITTED);
-        return applicationRepository.save(application);
+        RegistrationApplication saved = applicationRepository.save(application);
+        auditService.record("APPLICATION_SUBMITTED", "APPLICATION", applicationId,
+                authorizationService.currentUser(), "Application submitted for review");
+        return saved;
     }
 }
