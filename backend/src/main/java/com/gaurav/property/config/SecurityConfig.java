@@ -1,7 +1,7 @@
 package com.gaurav.property.config;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.ArrayList;\nimport java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -52,11 +52,22 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(List.of(
+        List<String> allowedOrigins = new ArrayList<>(List.of(
                 frontendOrigin,
                 "https://frontend-six-amber-63.vercel.app",
                 "http://localhost:5173"
         ));
+
+        if (additionalFrontendOrigins != null && !additionalFrontendOrigins.isBlank()) {
+            for (String origin : additionalFrontendOrigins.split(",")) {
+                String normalized = origin.trim();
+                if (!normalized.isBlank() && !allowedOrigins.contains(normalized)) {
+                    allowedOrigins.add(normalized);
+                }
+            }
+        }
+
+        configuration.setAllowedOrigins(allowedOrigins);
 
         configuration.setAllowedMethods(List.of(
                 "GET",
