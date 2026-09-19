@@ -2076,3 +2076,64 @@ input[type="file"] {
     padding: 30px 20px;
   }
 }
+
+
+/* Backend readiness indicator */
+.backend-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  margin-top: 14px;
+  padding: 7px 11px;
+  border: 1px solid #dbe4f5;
+  border-radius: 999px;
+  background: rgba(255,255,255,.86);
+  color: #667085;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+
+.backend-status > span {
+  font-size: 10px;
+}
+
+.backend-status.online {
+  border-color: #b9e2c7;
+  background: #f4fcf7;
+  color: #167044;
+}
+
+.backend-status.online > span {
+  color: #16a05d;
+}
+
+.backend-status.checking {
+  color: #2854ca;
+}
+
+.backend-status.checking > span {
+  color: #5375d8;
+  animation: ps-pulse 1.2s ease-in-out infinite;
+}
+
+.backend-status.unavailable {
+  border-color: #f1d3b5;
+  background: #fff9f3;
+  color: #99530f;
+}
+
+.backend-status.unavailable > span {
+  color: #c56a17;
+}
+
+@keyframes ps-pulse {
+  50% { opacity: .35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backend-status.checking > span {
+    animation: none;
+  }
+}
