@@ -206,12 +206,15 @@ function App() {
         setApplications(applicationsData);
         setOfficerMode(true);
       } else {
-        const savedApplications = await request("/api/applications");
-        const savedProperties = await request("/api/properties/me").catch(() => []);
-        const existingOwner = await request("/api/owners/me").catch(() => null);
+        const [savedApplications, savedProperties, existingOwner] = await Promise.all([
+          request("/api/applications"),
+          request("/api/properties/me").catch(() => []),
+          request("/api/owners/me").catch(() => null)
+        ]);
         setApplicantApplications(savedApplications || []);
         setProperties(savedProperties || []);
-        await loadPaymentHistory(savedApplications || []);
+        // Payment history is useful, but it should not block the workspace from opening.
+        void loadPaymentHistory(savedApplications || []);
 
         if (existingOwner) {
           setOwner(existingOwner);
@@ -570,11 +573,19 @@ function App() {
 
       setPayment(data);
       setApplication(data.application);
-      const refreshedApplications = await request("/api/applications");
-      setApplicantApplications(refreshedApplications || []);
-      await loadPaymentHistory(refreshedApplications || []);
       setMessage("Payment completed successfully.");
       setStep("paymentComplete");
+
+      // The success screen can render immediately; refresh history in the background.
+      void request("/api/applications")
+        .then(refreshedApplications => {
+          const records = refreshedApplications || [];
+          setApplicantApplications(records);
+          void loadPaymentHistory(records);
+        })
+        .catch(() => {
+          // The confirmed payment response above is already the source of truth for this screen.
+        });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -725,7 +736,7 @@ function App() {
     setPaymentHistoryLoading(true);
     try {
       const results = await Promise.all(
-        records.slice(0, 12).map(async record => {
+        records.slice(0, 8).map(async record => {
           const paymentRecord = await request(`/api/payments/application/${record.id}`).catch(() => null);
           return paymentRecord ? { ...paymentRecord, application: record } : null;
         })
@@ -740,6 +751,19 @@ function App() {
     if (step === "paymentComplete") return 7;
     const index = ["owner", "property", "location", "application", "documents", "submit", "payment"].indexOf(step);
     return index < 0 ? 0 : index + 1;
+  }
+
+  function companionGuidance() {
+    const guidance = {
+      owner: ["Applicant information", "Enter the applicant details used for this academic workflow."],
+      property: ["Property details", "Add the property record you want to connect to this application."],
+      location: ["Property location", "Complete the address so the property record has a clear location."],
+      application: ["Application details", "Choose the purpose and add any useful application note."],
+      documents: ["Supporting documents", "Upload the three required demo document categories before review."],
+      submit: ["Final review", "Check the summary and acknowledgement before submission."],
+      payment: ["Test-mode payment", "Create and complete the demonstration payment to finish the workflow."]
+    };
+    return guidance[step] || ["Application workspace", "Use the guided sections below to continue your academic demonstration."];
   }
 
   async function verifySelected(status) {
@@ -1271,6 +1295,16 @@ function App() {
             return <span key={label} className={complete ? "ready" : index === currentIndex ? "active" : "future"}><i>{complete ? "✓" : index + 1}</i>{label}</span>;
           })}
         </div>
+      </section>
+
+      <section className="companion-card" aria-label="Application guide">
+        <div className="companion-icon">✦</div>
+        <div>
+          <p className="eyebrow">APPLICATION GUIDE</p>
+          <h3>{companionGuidance()[0]}</h3>
+          <p>{companionGuidance()[1]}</p>
+        </div>
+        <span className="companion-next">{applicationProgress() === 7 ? "Workflow complete" : "Continue with the section below"}</span>
       </section>
 
       <section className="card">
