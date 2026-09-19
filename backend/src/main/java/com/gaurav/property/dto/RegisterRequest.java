@@ -1,7 +1,7 @@
 package com.gaurav.property.dto;
 
 import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;\nimport jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import lombok.Getter;
@@ -23,5 +23,7 @@ public class RegisterRequest {
     @Email
     private String email;
 
+    @NotBlank
+    @Pattern(regexp = "^\\d{10}$", message = "Phone must be a 10-digit mobile number")
     private String phone;
 }
