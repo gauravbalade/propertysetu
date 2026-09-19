@@ -1308,7 +1308,7 @@ function App() {
               </div>
               <button type="button" onClick={() => { setProperty(propertyReferenceMatch); setMessage(`Using saved property ${propertyReferenceMatch.propertyNumber}.`); setStep("location"); }}>Use saved record</button>
             </div>}
-            <form onSubmit={createProperty>
+            <form onSubmit={createProperty}>
               <div className="form-section-heading"><span className="step-icon">02</span><div><h2>Property details</h2><p className="muted">Add the property information for this application.</p></div></div>
               <div className="field-grid two">
                 <div className="field"><label htmlFor="property-number">Property reference <span>*</span></label><input id="property-number" placeholder="" value={propertyForm.propertyNumber} onChange={e => update(setPropertyForm, "propertyNumber", e.target.value)} required /><small className="field-example">Example: PROP-2026-001</small>{propertyForm.propertyNumber.trim() && !propertyReferenceMatch && <small className="record-check clear">No matching property reference was found in your saved account records.</small>}{propertyReferenceMatch && <small className="record-check match">✓ Matching saved property found — use the existing record above.</small>}</div>
