@@ -35,6 +35,7 @@ function App() {
   const [applicationLookup, setApplicationLookup] = useState("");
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [paymentHistoryLoading, setPaymentHistoryLoading] = useState(false);
+  const [workspaceLoading, setWorkspaceLoading] = useState(false);
   const [remarks, setRemarks] = useState(
     "Payment confirmed and all submitted documents were checked successfully."
   );
@@ -201,72 +202,88 @@ function App() {
 
       setUser(data);
       sessionStorage.setItem("property_registration_token", data.token);
+
       if (data.role === "OFFICER" || data.role === "ADMIN") {
         const applicationsData = await request("/api/applications");
         setApplications(applicationsData);
         setOfficerMode(true);
-      } else {
-        const [savedApplications, savedProperties, existingOwner] = await Promise.all([
-          request("/api/applications"),
-          request("/api/properties/me").catch(() => []),
-          request("/api/owners/me").catch(() => null)
-        ]);
-        setApplicantApplications(savedApplications || []);
-        setProperties(savedProperties || []);
-        // Payment history is useful, but it should not block the workspace from opening.
-        void loadPaymentHistory(savedApplications || []);
-
-        if (existingOwner) {
-          setOwner(existingOwner);
-          setOwnerForm({
-            name: existingOwner.name || "",
-            address: existingOwner.address || "",
-            phone: existingOwner.phone || "",
-            identityNumber: existingOwner.identityNumber || ""
-          });
-        }
-
-        const current = [...(savedApplications || [])]
-          .filter(item => item.status !== "REJECTED")
-          .sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0))[0];
-        const currentProperty = current
-          ? (savedProperties || []).find(item => item.id === current.propertyId)
-          : null;
-
-        if (current && currentProperty) {
-          setApplication(current);
-          setProperty(currentProperty);
-          setPurpose(current.purpose || "");
-          if (current.status === "DRAFT") {
-            const documents = await request(`/api/applications/${current.id}/documents`).catch(() => []);
-            setUploadedDocuments(documents || []);
-            setStep("documents");
-            setMessage(`Welcome back, ${data.username}. Your application is ready to continue.`);
-          } else if (["SUBMITTED", "PAYMENT_PENDING"].includes(current.status)) {
-            const savedPayment = await request(`/api/payments/application/${current.id}`).catch(() => null);
-            setPayment(savedPayment);
-            setStep("payment");
-            setMessage(savedPayment
-              ? `Welcome back, ${data.username}. Your payment is ready to continue.`
-              : `Welcome back, ${data.username}. Your application is ready for payment.`);
-          } else {
-            const savedPayment = await request(`/api/payments/application/${current.id}`).catch(() => null);
-            setPayment(savedPayment);
-            setStep("paymentComplete");
-            setMessage(`Welcome back, ${data.username}. Your application status is ${current.status}.`);
-          }
-        } else if (existingOwner) {
-          setStep("property");
-          setMessage(`Welcome back, ${data.username}. Your saved owner profile is ready.`);
-        } else {
-          setStep("owner");
-          setMessage(`Welcome, ${data.username}. Let’s create your owner profile.`);
-        }
-      }
-
-      if (data.role === "OFFICER" || data.role === "ADMIN") {
         setMessage(`Welcome, ${data.username}. Officer workspace is ready.`);
+        return;
       }
+
+      // Do not make the applicant wait for every secondary record before showing the workspace.
+      // The API/database may be cold on a free Render instance, so hydrate the saved records in the background.
+      setWorkspaceLoading(true);
+      setStep("owner");
+      setMessage(`Welcome, ${data.username}. Loading your saved application records…`);
+
+      void (async () => {
+        try {
+          const [savedApplications, savedProperties, existingOwner] = await Promise.all([
+            request("/api/applications"),
+            request("/api/properties/me").catch(() => []),
+            request("/api/owners/me").catch(() => null)
+          ]);
+
+          setApplicantApplications(savedApplications || []);
+          setProperties(savedProperties || []);
+          void loadPaymentHistory(savedApplications || []);
+
+          if (existingOwner) {
+            setOwner(existingOwner);
+            setOwnerForm({
+              name: existingOwner.name || "",
+              address: existingOwner.address || "",
+              phone: existingOwner.phone || "",
+              identityNumber: existingOwner.identityNumber || ""
+            });
+          }
+
+          const current = [...(savedApplications || [])]
+            .filter(item => item.status !== "REJECTED")
+            .sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0))[0];
+          const currentProperty = current
+            ? (savedProperties || []).find(item => item.id === current.propertyId)
+            : null;
+
+          if (current && currentProperty) {
+            setApplication(current);
+            setProperty(currentProperty);
+            setPurpose(current.purpose || "");
+
+            if (current.status === "DRAFT") {
+              const documents = await request(`/api/applications/${current.id}/documents`).catch(() => []);
+              setUploadedDocuments(documents || []);
+              setStep("documents");
+              setMessage(`Welcome back, ${data.username}. Your application is ready to continue.`);
+            } else if (["SUBMITTED", "PAYMENT_PENDING"].includes(current.status)) {
+              const savedPayment = await request(`/api/payments/application/${current.id}`).catch(() => null);
+              setPayment(savedPayment);
+              setStep("payment");
+              setMessage(savedPayment
+                ? `Welcome back, ${data.username}. Your payment is ready to continue.`
+                : `Welcome back, ${data.username}. Your application is ready for payment.`);
+            } else {
+              const savedPayment = await request(`/api/payments/application/${current.id}`).catch(() => null);
+              setPayment(savedPayment);
+              setStep("paymentComplete");
+              setMessage(`Welcome back, ${data.username}. Your application status is ${current.status}.`);
+            }
+          } else if (existingOwner) {
+            setStep("property");
+            setMessage(`Welcome back, ${data.username}. Your saved owner profile is ready.`);
+          } else {
+            setStep("owner");
+            setMessage(`Welcome, ${data.username}. Let’s create your owner profile.`);
+          }
+        } catch (err) {
+          // Authentication already succeeded. Keep the user in the workspace and explain that
+          // saved-record hydration can be retried instead of sending them back to login.
+          setError("Your account is signed in, but saved application records could not be loaded yet. Use Refresh status to try again.");
+        } finally {
+          setWorkspaceLoading(false);
+        }
+      })();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -863,6 +880,20 @@ function App() {
         </section>}
 
         <footer className="public-footer"><span>PropertySetu · Student academic project</span><span>Test-mode payment · No official registration</span></footer>
+      </main>
+    );
+  }
+
+  if (workspaceLoading && user && !officerMode) {
+    return (
+      <main className="app auth-page">
+        <section className="workspace-loading-card" aria-live="polite">
+          <div className="workspace-loading-mark">PS</div>
+          <p className="eyebrow">PROPERTYSETU · ACADEMIC WORKSPACE</p>
+          <h1>Preparing your application workspace…</h1>
+          <p>We’ve signed you in. Your saved application, property and applicant records are loading now.</p>
+          <small>This can take a little longer when the academic backend is waking up. You can stay on this page safely.</small>
+        </section>
       </main>
     );
   }
