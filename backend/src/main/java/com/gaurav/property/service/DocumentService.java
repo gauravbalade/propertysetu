@@ -137,6 +137,9 @@ public class DocumentService {
         Document saved = documentRepository.save(document);
         auditService.record("DOCUMENT_REVIEWED", "DOCUMENT", documentId,
                 authorizationService.currentUser(), "Status changed to " + status.name());
+        auditService.record("DOCUMENT_STATUS_CHANGED", "APPLICATION", applicationId,
+                authorizationService.currentUser(),
+                normalizedDocumentType(document.getDocumentType()) + " document marked " + status.name());
         return toResponse(saved);
     }
 
@@ -159,6 +162,10 @@ public class DocumentService {
         String contentType = Files.probeContentType(storedPath);
         return new DocumentDownload(resource, document.getFileName(),
                 contentType == null ? "application/octet-stream" : contentType);
+    }
+
+    private String normalizedDocumentType(String type) {
+        return String.valueOf(type).replace('_', ' ');
     }
 
     private void validateFileSignature(MultipartFile file, String lowerName) throws IOException {
