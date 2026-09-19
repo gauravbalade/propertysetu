@@ -1,7 +1,8 @@
 package com.gaurav.property.config;
 
 import java.io.IOException;
-import java.util.ArrayList;\nimport java.util.List;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
