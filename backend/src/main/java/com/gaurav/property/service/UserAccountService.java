@@ -62,6 +62,10 @@ public class UserAccountService {
                 .findByUsername(request.getUsername())
                 .orElseThrow(() -> new RuntimeException("Invalid username or password"));
 
+        if (!Boolean.TRUE.equals(user.getActive())) {
+            throw new RuntimeException("Account is inactive");
+        }
+
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new RuntimeException("Invalid username or password");
         }
