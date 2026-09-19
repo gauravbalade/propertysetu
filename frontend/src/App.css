@@ -1958,3 +1958,68 @@ input[type="file"] {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Application Companion: guidance only, never presented as a fake AI feature. */
+.companion-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 13px;
+  margin: 18px 0;
+  padding: 16px 18px;
+  border: 1px solid #dbe4f5;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #f8faff, #ffffff);
+  box-shadow: 0 8px 24px rgba(28, 48, 86, .05);
+}
+
+.companion-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #eaf0ff;
+  color: #2854ca;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.companion-card .eyebrow {
+  margin-bottom: 3px;
+}
+
+.companion-card h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.companion-card p:not(.eyebrow) {
+  margin: 0;
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.companion-next {
+  max-width: 190px;
+  color: #2854ca;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.4;
+  text-align: right;
+}
+
+@media (max-width: 620px) {
+  .companion-card {
+    grid-template-columns: auto 1fr;
+  }
+
+  .companion-next {
+    grid-column: 1 / -1;
+    max-width: none;
+    padding-top: 2px;
+    text-align: left;
+  }
+}
