@@ -2023,3 +2023,56 @@ input[type="file"] {
     text-align: left;
   }
 }
+
+
+.workspace-loading-card {
+  width: min(680px, 100%);
+  margin: 12vh auto 0;
+  padding: 42px 32px;
+  text-align: center;
+  border: 1px solid #dbe4f5;
+  border-radius: 24px;
+  background: linear-gradient(145deg, #f8faff, #ffffff);
+  box-shadow: 0 18px 55px rgba(28, 48, 86, .08);
+}
+
+.workspace-loading-mark {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 20px;
+  border-radius: 18px;
+  background: #172033;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+.workspace-loading-card h1 {
+  margin: 6px 0 12px;
+  font-size: clamp(25px, 4vw, 36px);
+}
+
+.workspace-loading-card p:not(.eyebrow) {
+  max-width: 540px;
+  margin: 0 auto 12px;
+  color: #667085;
+  line-height: 1.65;
+}
+
+.workspace-loading-card small {
+  display: block;
+  max-width: 520px;
+  margin: 0 auto;
+  color: #7a8496;
+  line-height: 1.55;
+}
+
+@media (max-width: 620px) {
+  .workspace-loading-card {
+    margin-top: 7vh;
+    padding: 30px 20px;
+  }
+}
