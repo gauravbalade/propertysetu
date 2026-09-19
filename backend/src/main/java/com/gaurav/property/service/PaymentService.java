@@ -21,6 +21,8 @@ import com.gaurav.property.repository.RegistrationApplicationRepository;
 @Service
 public class PaymentService {
 
+    private static final BigDecimal TEST_PAYMENT_AMOUNT = BigDecimal.valueOf(500);
+
     private final PaymentRepository paymentRepository;
     private final RegistrationApplicationRepository applicationRepository;
     private final AuthorizationService authorizationService;
@@ -56,8 +58,8 @@ public class PaymentService {
                 && application.getStatus() != ApplicationStatus.PAYMENT_PENDING) {
             throw new RuntimeException("Payment is available only for submitted applications");
         }
-        if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Payment amount must be greater than zero");
+        if (request.getAmount() == null || request.getAmount().compareTo(TEST_PAYMENT_AMOUNT) != 0) {
+            throw new RuntimeException("Test-mode payment amount must be ₹500.00");
         }
 
         if (application.getStatus() == ApplicationStatus.PAYMENT_PENDING) {
@@ -73,7 +75,8 @@ public class PaymentService {
         Payment payment = new Payment();
         payment.setApplication(application);
         payment.setGatewayOrderId("TEST_ORDER_" + UUID.randomUUID().toString().substring(0, 10).toUpperCase());
-        payment.setAmount(request.getAmount());
+        // The server owns the demo fee; the client cannot choose a different amount.
+        payment.setAmount(TEST_PAYMENT_AMOUNT);
         payment.setPaymentDate(LocalDateTime.now());
         payment.setPaymentStatus(PaymentStatus.PENDING);
         payment.setSignatureVerified(false);
@@ -137,6 +140,8 @@ public class PaymentService {
         Payment saved = paymentRepository.save(payment);
         auditService.record("PAYMENT_SUCCEEDED", "PAYMENT", payment.getId(),
                 authorizationService.currentUser(), "Test-mode payment reference recorded");
+        auditService.record("PAYMENT_COMPLETED", "APPLICATION", application.getId(),
+                authorizationService.currentUser(), "Test-mode payment completed");
         return toResponse(saved);
     }
 
