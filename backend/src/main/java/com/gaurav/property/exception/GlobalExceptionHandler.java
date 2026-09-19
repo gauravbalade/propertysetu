@@ -33,7 +33,11 @@ public class GlobalExceptionHandler {
                 || message.contains("Authentication is required")
                 || message.contains("authenticated officer")
                 ? HttpStatus.FORBIDDEN : HttpStatus.BAD_REQUEST;
-        if (message.endsWith("not found") || message.contains("was not found")) {
+        if ("Invalid username or password".equals(message)) {
+            status = HttpStatus.UNAUTHORIZED;
+        } else if (message.contains("already exists")) {
+            status = HttpStatus.CONFLICT;
+        } else if (message.endsWith("not found") || message.contains("was not found")) {
             status = HttpStatus.NOT_FOUND;
         }
         return response(status, message, null);
