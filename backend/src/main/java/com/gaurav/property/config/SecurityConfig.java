@@ -38,6 +38,9 @@ public class SecurityConfig {
     @Value("${FRONTEND_ORIGIN:http://localhost:5173}")
     private String frontendOrigin;
 
+    @Value("${FRONTEND_ORIGINS:}")
+    private String additionalFrontendOrigins;
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
