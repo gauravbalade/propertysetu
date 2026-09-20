@@ -305,6 +305,85 @@ function App() {
     sessionStorage.removeItem("property_registration_token");
   }
 
+  async function enterApplicantWorkspace(data) {
+    // Account creation and sign-in share the same applicant workspace hydration path.
+    // All existing records are loaded from the backend/TiDB after authentication.
+    setUser(data);
+    sessionStorage.setItem("property_registration_token", data.token);
+    setWorkspaceLoading(true);
+    setStep("owner");
+    setMessage(`Welcome, ${data.username}. Loading your saved PropertySetu records…`);
+
+    void (async () => {
+      try {
+        const [savedApplications, savedProperties, existingOwner] = await Promise.all([
+          request("/api/applications"),
+          request("/api/properties/me").catch(() => []),
+          request("/api/owners/me").catch(() => null)
+        ]);
+
+        setApplicantApplications(savedApplications || []);
+        setProperties(savedProperties || []);
+        void loadPaymentHistory(savedApplications || []);
+
+        if (existingOwner) {
+          setOwner(existingOwner);
+          setOwnerForm({
+            name: existingOwner.name || "",
+            address: existingOwner.address || "",
+            phone: existingOwner.phone || "",
+            identityNumber: existingOwner.identityNumber || ""
+          });
+        }
+
+        const current = [...(savedApplications || [])]
+          .filter(item => item.status !== "REJECTED")
+          .sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0))[0];
+        const currentProperty = current
+          ? (savedProperties || []).find(item => item.id === current.propertyId)
+          : null;
+
+        if (current && currentProperty) {
+          setApplication(current);
+          setProperty(currentProperty);
+          setPurpose(current.purpose || "");
+
+          if (current.status === "DRAFT") {
+            const documents = await request(`/api/applications/${current.id}/documents`).catch(() => []);
+            setUploadedDocuments(documents || []);
+            void loadAuditHistory(current.id);
+            setStep("documents");
+            setMessage(`Welcome back, ${data.username}. Your application is ready to continue.`);
+          } else if (["SUBMITTED", "PAYMENT_PENDING"].includes(current.status)) {
+            const savedPayment = await request(`/api/payments/application/${current.id}`).catch(() => null);
+            setPayment(savedPayment);
+            void loadAuditHistory(current.id);
+            setStep("payment");
+            setMessage(savedPayment
+              ? `Welcome back, ${data.username}. Your payment is ready to continue.`
+              : `Welcome back, ${data.username}. Your application is ready for payment.`);
+          } else {
+            const savedPayment = await request(`/api/payments/application/${current.id}`).catch(() => null);
+            setPayment(savedPayment);
+            void loadAuditHistory(current.id);
+            setStep("paymentComplete");
+            setMessage(`Welcome back, ${data.username}. Your application status is ${current.status}.`);
+          }
+        } else if (existingOwner) {
+          setStep("property");
+          setMessage(`Welcome back, ${data.username}. Your saved owner profile is ready.`);
+        } else {
+          setStep("owner");
+          setMessage(`Welcome, ${data.username}. Let’s create your owner profile.`);
+        }
+      } catch (err) {
+        setError("Your account is signed in, but saved application records could not be loaded yet. Use Refresh status to try again.");
+      } finally {
+        setWorkspaceLoading(false);
+      }
+    })();
+  }
+
   async function login(event) {
     event.preventDefault();
     if (busy) return;
@@ -337,75 +416,8 @@ function App() {
         return;
       }
 
-      // Do not make the applicant wait for every secondary record before showing the workspace.
-      // The API/database may be cold on a free Render instance, so hydrate the saved records in the background.
-      setWorkspaceLoading(true);
-      setStep("owner");
-      setMessage(`Welcome, ${data.username}. Loading your saved application records…`);
-
-      void (async () => {
-        try {
-          const [savedApplications, savedProperties, existingOwner] = await Promise.all([
-            request("/api/applications"),
-            request("/api/properties/me").catch(() => []),
-            request("/api/owners/me").catch(() => null)
-          ]);
-
-          setApplicantApplications(savedApplications || []);
-          setProperties(savedProperties || []);
-          void loadPaymentHistory(savedApplications || []);
-
-          if (existingOwner) {
-            setOwner(existingOwner);
-            setOwnerForm({
-              name: existingOwner.name || "",
-              address: existingOwner.address || "",
-              phone: existingOwner.phone || "",
-              identityNumber: existingOwner.identityNumber || ""
-            });
-          }
-
-          const current = [...(savedApplications || [])]
-            .filter(item => item.status !== "REJECTED")
-            .sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0))[0];
-          const currentProperty = current
-            ? (savedProperties || []).find(item => item.id === current.propertyId)
-            : null;
-
-          if (current && currentProperty) {
-            setApplication(current);
-            setProperty(currentProperty);
-            setPurpose(current.purpose || "");
-
-            if (current.status === "DRAFT") {
-              const documents = await request(`/api/applications/${current.id}/documents`).catch(() => []);
-              setUploadedDocuments(documents || []);
-              void loadAuditHistory(current.id);
-              setStep("documents");
-              setMessage(`Welcome back, ${data.username}. Your application is ready to continue.`);
-            } else if (["SUBMITTED", "PAYMENT_PENDING"].includes(current.status)) {
-              const savedPayment = await request(`/api/payments/application/${current.id}`).catch(() => null);
-              setPayment(savedPayment);
-              void loadAuditHistory(current.id);
-              setStep("payment");
-              setMessage(savedPayment
-                ? `Welcome back, ${data.username}. Your payment is ready to continue.`
-                : `Welcome back, ${data.username}. Your application is ready for payment.`);
-            } else {
-              const savedPayment = await request(`/api/payments/application/${current.id}`).catch(() => null);
-              setPayment(savedPayment);
-              void loadAuditHistory(current.id);
-              setStep("paymentComplete");
-              setMessage(`Welcome back, ${data.username}. Your application status is ${current.status}.`);
-            }
-          } else if (existingOwner) {
-            setStep("property");
-            setMessage(`Welcome back, ${data.username}. Your saved owner profile is ready.`);
-          } else {
-            setStep("owner");
-            setMessage(`Welcome, ${data.username}. Let’s create your owner profile.`);
-          }
-        } catch (err) {
+      await enterApplicantWorkspace(data);
+    } catch (err) {
           // Authentication already succeeded. Keep the user in the workspace and explain that
           // saved-record hydration can be retried instead of sending them back to login.
           setError("Your account is signed in, but saved application records could not be loaded yet. Use Refresh status to try again.");
@@ -447,32 +459,13 @@ function App() {
         body: JSON.stringify(registerForm)
       });
 
-      setUser(null);
-      sessionStorage.removeItem("property_registration_token");
-      setVerificationUsername(data.username || registerForm.username);
-      setVerificationEmail(data.email || registerForm.email);
-      setVerificationPhone(data.phone || registerForm.phone);
-      setVerificationCodes({ EMAIL: "", PHONE: "" });
-      setMsg91ReqIds({ EMAIL: "", PHONE: "" });
-      setVerificationState({
-        EMAIL: Boolean(data.emailVerified),
-        PHONE: Boolean(data.phoneVerified)
-      });
-      setOtpCooldowns({ EMAIL: 0, PHONE: 0 });
-      setDemoOtpCodes({ EMAIL: "", PHONE: "", RESET: "" });
-
-      await sendMsg91Otp("EMAIL", data.email || registerForm.email);
-      await sendMsg91Otp("PHONE", data.phone || registerForm.phone);
-      setOtpCooldowns({ EMAIL: 30, PHONE: 30 });
-      setMessage(MSG91_WIDGET_ID && MSG91_WIDGET_TOKEN
-        ? "Account created. OTPs were sent through MSG91. Verify both your email and mobile number before signing in."
-        : "Account created in academic fallback mode. Use the demo OTPs shown below to verify both contacts.");
-      setLoginForm({ username: registerForm.username, password: "" });
       setRegisterForm({ username: "", password: "", email: "", phone: "" });
       setRegisterConfirmPassword("");
       setRegisterPasswordVisible(false);
       setRegisterConfirmPasswordVisible(false);
-      setStep("verify");
+      setRegisterPasswordError("");
+      setMessage(`Account created successfully. Welcome to PropertySetu, ${data.username}.`);
+      await enterApplicantWorkspace(data);
     } catch (err) {
       setError(err.message);
     } finally {
