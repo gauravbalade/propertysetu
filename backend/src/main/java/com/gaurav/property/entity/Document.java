@@ -54,18 +54,7 @@ public class Document {
     @Column(nullable = false, length = 20)
     private DocumentStatus status;
 
-    public Document(Long id, RegistrationApplication application, String documentType, String fileName, String storedPath, LocalDateTime uploadDate, DocumentStatus status) {
-        this.id = id;
-        this.application = application;
-        this.documentType = documentType;
-        this.fileName = fileName;
-        this.storedPath = storedPath;
-        this.uploadDate = uploadDate;
-        this.status = status;
-    }
 
-    public Document() {
-    }
 
     public Long getId() {
         return this.id;
