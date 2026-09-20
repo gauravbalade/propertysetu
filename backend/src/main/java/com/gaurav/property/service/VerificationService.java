@@ -30,6 +30,7 @@ public class VerificationService {
     private final AuthorizationService authorizationService;
     private final AuditService auditService;
     private final NotificationService notificationService;
+    private final NotificationService notificationService;
 
     public VerificationService(
             VerificationRepository verificationRepository,
@@ -44,6 +45,7 @@ public class VerificationService {
         this.documentRepository = documentRepository;
         this.authorizationService = authorizationService;
         this.auditService = auditService;
+        this.notificationService = notificationService;
         this.notificationService = notificationService;
     }
 
