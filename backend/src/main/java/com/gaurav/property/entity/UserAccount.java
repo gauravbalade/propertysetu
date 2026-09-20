@@ -14,19 +14,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Entity
 @Table(name = "user_accounts")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class UserAccount {
 
     @Id
@@ -47,12 +37,10 @@ public class UserAccount {
     private String phone;
 
     @Column(nullable = false)
-    @Builder.Default
-    private Boolean emailVerified = false;
+        private Boolean emailVerified = false;
 
     @Column(nullable = false)
-    @Builder.Default
-    private Boolean phoneVerified = false;
+        private Boolean phoneVerified = false;
 
     @Column(length = 50)
     private String emailVerificationSid;
@@ -65,16 +53,13 @@ public class UserAccount {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    @Builder.Default
-    private UserRole role = UserRole.APPLICANT;
+        private UserRole role = UserRole.APPLICANT;
 
     @Column(nullable = false)
-    @Builder.Default
-    private Boolean active = true;
+        private Boolean active = true;
 
     @Column(nullable = false)
-    @Builder.Default
-    private LocalDateTime createdAt = LocalDateTime.now();
+        private LocalDateTime createdAt = LocalDateTime.now();
 
     public UserAccount(Long id, String username, String password, String email, String phone, String emailVerificationSid, String phoneVerificationSid, String passwordResetVerificationSid) {
         this.id = id;
