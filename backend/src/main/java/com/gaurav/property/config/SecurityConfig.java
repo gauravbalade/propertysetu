@@ -158,6 +158,7 @@ public class SecurityConfig {
                     .requestMatchers(
                             "/api/auth/register",
                             "/api/auth/login",
+                            "/api/auth/verify-msg91-token",
                             "/api/auth/verify-otp",
                             "/api/auth/resend-otp",
                             "/api/auth/forgot-password",
