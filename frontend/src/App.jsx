@@ -1245,12 +1245,13 @@ function App() {
     setBusy(true);
     try {
       if (!MSG91_WIDGET_ID || !MSG91_WIDGET_TOKEN) {
-        await request("/api/auth/demo-otp/reset-password?newPassword=" + encodeURIComponent(newPassword), {
+        await request("/api/auth/demo-otp/reset-password", {
           method: "POST",
           body: JSON.stringify({
             username: forgotEmail.trim().toLowerCase(),
             channel: "RESET",
-            code: resetCode.trim()
+            code: resetCode.trim(),
+            newPassword
           })
         });
       } else {
