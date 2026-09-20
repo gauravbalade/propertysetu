@@ -46,6 +46,23 @@ public class UserAccount {
     @Column(length = 20)
     private String phone;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean emailVerified = false;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean phoneVerified = false;
+
+    @Column(length = 50)
+    private String emailVerificationSid;
+
+    @Column(length = 50)
+    private String phoneVerificationSid;
+
+    @Column(length = 50)
+    private String passwordResetVerificationSid;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
