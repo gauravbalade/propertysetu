@@ -14,5 +14,7 @@ public record PaymentResponse(
         LocalDateTime paymentDate,
         PaymentStatus paymentStatus,
         Boolean signatureVerified,
-        String gatewayReference) {
+        String gatewayReference,
+        String gatewayKeyId,
+        String currency) {
 }
