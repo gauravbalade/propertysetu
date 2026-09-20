@@ -64,12 +64,8 @@ public class AuthController {
 
     @PostMapping("/demo-otp/reset-password")
     public ResponseEntity<Void> resetPasswordWithDemoOtp(
-            @Valid @RequestBody DemoOtpRequest request,
-            @org.springframework.web.bind.annotation.RequestParam String newPassword) {
-        if (newPassword == null || newPassword.length() < 6 || newPassword.length() > 100) {
-            throw new RuntimeException("Password must be between 6 and 100 characters.");
-        }
-        userAccountService.resetPasswordWithDemoOtp(request, newPassword);
+            @Valid @RequestBody DemoOtpRequest request) {
+        userAccountService.resetPasswordWithDemoOtp(request);
         return ResponseEntity.noContent().build();
     }
 
