@@ -7,6 +7,8 @@ import com.gaurav.property.entity.Location;
 import com.gaurav.property.entity.Property;
 import com.gaurav.property.repository.LocationRepository;
 import com.gaurav.property.repository.PropertyRepository;
+import com.gaurav.property.repository.RegistrationApplicationRepository;
+import com.gaurav.property.enums.ApplicationStatus;
 
 @Service
 public class LocationService {
@@ -14,14 +16,17 @@ public class LocationService {
     private final LocationRepository locationRepository;
     private final PropertyRepository propertyRepository;
     private final AuthorizationService authorizationService;
+    private final RegistrationApplicationRepository applicationRepository;
 
     public LocationService(
             LocationRepository locationRepository,
             PropertyRepository propertyRepository,
-            AuthorizationService authorizationService) {
+            AuthorizationService authorizationService,
+            RegistrationApplicationRepository applicationRepository) {
         this.locationRepository = locationRepository;
         this.propertyRepository = propertyRepository;
         this.authorizationService = authorizationService;
+        this.applicationRepository = applicationRepository;
     }
 
     public Location getLocation(Long propertyId) {
@@ -36,6 +41,11 @@ public class LocationService {
                 .orElseThrow(() -> new RuntimeException("Location not found"));
         authorizationService.requireOwner(location.getProperty().getOwner().getUserAccount());
 
+        if (applicationRepository.findByPropertyId(location.getProperty().getId()).stream()
+                .anyMatch(application -> application.getStatus() != ApplicationStatus.DRAFT)) {
+            throw new RuntimeException("This location cannot be edited after its application leaves DRAFT status.");
+        }
+
         location.setAddress(request.getAddress().trim());
         location.setCity(request.getCity().trim());
         location.setDistrict(request.getDistrict().trim());
@@ -49,6 +59,11 @@ public class LocationService {
         Location location = locationRepository.findById(locationId)
                 .orElseThrow(() -> new RuntimeException("Location not found"));
         authorizationService.requireOwner(location.getProperty().getOwner().getUserAccount());
+
+        if (applicationRepository.findByPropertyId(location.getProperty().getId()).stream()
+                .anyMatch(application -> application.getStatus() != ApplicationStatus.DRAFT)) {
+            throw new RuntimeException("This location cannot be deleted after its application leaves DRAFT status.");
+        }
 
         locationRepository.delete(location);
     }
