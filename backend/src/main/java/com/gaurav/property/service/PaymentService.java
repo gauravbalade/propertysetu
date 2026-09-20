@@ -32,6 +32,7 @@ public class PaymentService {
     private final RegistrationApplicationRepository applicationRepository;
     private final AuthorizationService authorizationService;
     private final AuditService auditService;
+    private final NotificationService notificationService;
 
     @Value("${RAZORPAY_KEY_ID:}")
     private String razorpayKeyId;
@@ -42,11 +43,13 @@ public class PaymentService {
     public PaymentService(PaymentRepository paymentRepository,
             RegistrationApplicationRepository applicationRepository,
             AuthorizationService authorizationService,
-            AuditService auditService) {
+            AuditService auditService,
+            NotificationService notificationService) {
         this.paymentRepository = paymentRepository;
         this.applicationRepository = applicationRepository;
         this.authorizationService = authorizationService;
         this.auditService = auditService;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -203,6 +206,13 @@ public class PaymentService {
             auditService.record("PAYMENT_COMPLETED", "APPLICATION", application.getId(),
                     authorizationService.currentUser(), "Razorpay test payment completed");
 
+            notificationService.sendApplicationStatus(
+                    application.getUserAccount().getEmail(),
+                    application.getApplicationNumber(),
+                    application.getProperty().getPropertyNumber(),
+                    application.getStatus().name(),
+                    "Your test-mode payment was verified. The application can now move through officer review.");
+            
             return toResponse(saved);
         } catch (RazorpayException ex) {
             throw new RuntimeException("Unable to confirm the Razorpay payment. Please try again.");
@@ -277,6 +287,13 @@ public class PaymentService {
                     null, "Razorpay webhook confirmed captured payment");
             auditService.record("PAYMENT_COMPLETED", "APPLICATION", application.getId(),
                     null, "Payment completion confirmed by Razorpay webhook");
+
+            notificationService.sendApplicationStatus(
+                    application.getUserAccount().getEmail(),
+                    application.getApplicationNumber(),
+                    application.getProperty().getPropertyNumber(),
+                    application.getStatus().name(),
+                    "Your Razorpay payment was confirmed by the server webhook. No further payment action is required.");
         } catch (RazorpayException ex) {
             throw new RuntimeException("Unable to verify Razorpay webhook signature.");
         }
