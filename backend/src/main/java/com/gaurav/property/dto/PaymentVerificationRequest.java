@@ -14,8 +14,11 @@ public class PaymentVerificationRequest {
     private Long paymentId;
 
     @NotBlank
-    private String paymentReference;
+    private String razorpayOrderId;
 
-    @NotNull
-    private Boolean successful;
+    @NotBlank
+    private String razorpayPaymentId;
+
+    @NotBlank
+    private String razorpaySignature;
 }
