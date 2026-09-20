@@ -4,6 +4,9 @@ import "./App.css";
 
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 
+const MSG91_WIDGET_ID = import.meta.env.VITE_MSG91_WIDGET_ID?.trim() || "";
+const MSG91_WIDGET_TOKEN = import.meta.env.VITE_MSG91_WIDGET_TOKEN?.trim() || "";
+
 const API = configuredApiUrl?.startsWith("http://") ||
   configuredApiUrl?.startsWith("https://")
   ? configuredApiUrl.replace(/\/+$/, "")
@@ -92,6 +95,8 @@ function App() {
   const [verificationEmail, setVerificationEmail] = useState("");
   const [verificationPhone, setVerificationPhone] = useState("");
   const [verificationCodes, setVerificationCodes] = useState({ EMAIL: "", PHONE: "" });
+  const [msg91Ready, setMsg91Ready] = useState(false);
+  const [msg91ReqIds, setMsg91ReqIds] = useState({ EMAIL: "", PHONE: "" });
   const [verificationState, setVerificationState] = useState({ EMAIL: false, PHONE: false });
   const [otpCooldowns, setOtpCooldowns] = useState({ EMAIL: 0, PHONE: 0 });
   const [forgotEmail, setForgotEmail] = useState("");
@@ -119,6 +124,38 @@ function App() {
 
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!MSG91_WIDGET_ID || !MSG91_WIDGET_TOKEN) {
+      setMsg91Ready(false);
+      return undefined;
+    }
+
+    if (typeof window !== "undefined" && typeof window.initSendOTP === "function") {
+      setMsg91Ready(true);
+      return undefined;
+    }
+
+    const existing = document.querySelector('script[src="https://verify.msg91.com/otp-provider.js"]');
+    const script = existing || document.createElement("script");
+    script.src = "https://verify.msg91.com/otp-provider.js";
+    script.async = true;
+
+    const handleLoad = () => {
+      setMsg91Ready(typeof window.initSendOTP === "function");
+    };
+    const handleError = () => setMsg91Ready(false);
+
+    script.addEventListener("load", handleLoad);
+    script.addEventListener("error", handleError);
+
+    if (!existing) document.body.appendChild(script);
+
+    return () => {
+      script.removeEventListener("load", handleLoad);
+      script.removeEventListener("error", handleError);
     };
   }, []);
 
@@ -391,12 +428,23 @@ function App() {
       setVerificationEmail(data.email || registerForm.email);
       setVerificationPhone(data.phone || registerForm.phone);
       setVerificationCodes({ EMAIL: "", PHONE: "" });
+      setMsg91ReqIds({ EMAIL: "", PHONE: "" });
       setVerificationState({
         EMAIL: Boolean(data.emailVerified),
         PHONE: Boolean(data.phoneVerified)
       });
+      setOtpCooldowns({ EMAIL: 0, PHONE: 0 });
+
+      if (!MSG91_WIDGET_ID || !MSG91_WIDGET_TOKEN) {
+        throw new Error("MSG91 OTP is not configured on the frontend yet. Please try again later.");
+      }
+
+      await Promise.all([
+        sendMsg91Otp("EMAIL", data.email || registerForm.email),
+        sendMsg91Otp("PHONE", data.phone || registerForm.phone)
+      ]);
       setOtpCooldowns({ EMAIL: 30, PHONE: 30 });
-      setMessage("Account created. We sent one OTP to your email and one to your mobile number. Verify both before signing in.");
+      setMessage("Account created. OTPs were sent through MSG91. Verify both your email and mobile number before signing in.");
       setLoginForm({ username: registerForm.username, password: "" });
       setRegisterForm({ username: "", password: "", email: "", phone: "" });
       setRegisterConfirmPassword("");
@@ -781,68 +829,190 @@ function App() {
     }
   }
 
-  async function verifyOtp(channel) {
+  function extractMsg91Value(value, keys) {
+    if (!value) return "";
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const found = extractMsg91Value(item, keys);
+        if (found) return found;
+      }
+      return "";
+    }
+    if (typeof value !== "object") return "";
+
+    for (const key of keys) {
+      if (typeof value[key] === "string" && value[key].trim()) return value[key].trim();
+    }
+
+    for (const child of Object.values(value)) {
+      const found = extractMsg91Value(child, keys);
+      if (found) return found;
+    }
+    return "";
+  }
+
+  function msg91Identifier(channel) {
+    if (channel === "EMAIL") return verificationEmail.trim().toLowerCase();
+    const digits = verificationPhone.replace(/\D/g, "");
+    return digits.length === 10 ? `91${digits}` : digits;
+  }
+
+  function initMsg91Widget(identifier) {
+    if (!MSG91_WIDGET_ID || !MSG91_WIDGET_TOKEN || typeof window.initSendOTP !== "function") {
+      throw new Error("MSG91 OTP is not ready. Please refresh the page and try again.");
+    }
+
+    window.initSendOTP({
+      widgetId: MSG91_WIDGET_ID,
+      tokenAuth: MSG91_WIDGET_TOKEN,
+      identifier,
+      exposeMethods: true,
+      captchaRenderId: "",
+      success: () => {},
+      failure: () => {}
+    });
+  }
+
+  function sendMsg91Otp(channel, explicitIdentifier = "") {
+    return new Promise((resolve, reject) => {
+      try {
+        const identifier = explicitIdentifier
+          ? (channel === "EMAIL" ? explicitIdentifier.trim().toLowerCase() : explicitIdentifier.replace(/\D/g, "").replace(/^91/, "91"))
+          : msg91Identifier(channel);
+
+        initMsg91Widget(identifier);
+
+        window.sendOtp(
+          identifier,
+          data => {
+            const reqId = extractMsg91Value(data, ["reqId", "reqID", "requestId", "requestID"]);
+            setMsg91ReqIds(previous => ({ ...previous, [channel]: reqId }));
+            resolve(data);
+          },
+          error => reject(new Error(error?.message || "MSG91 could not send the OTP. Please try again."))
+        );
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  function verifyMsg91Otp(channel) {
     if (busy) return;
     clearMessages();
 
     const code = verificationCodes[channel].trim();
-    if (!/^\d{4,10}$/.test(code)) {
-      showValidation([`Enter the OTP sent to your ${channel === "EMAIL" ? "email" : "mobile number"}.`]);
+    const reqId = msg91ReqIds[channel];
+    if (!/^\d{6}$/.test(code)) {
+      showValidation([`Enter the 6-digit OTP sent to your ${channel === "EMAIL" ? "email" : "mobile number"}.`]);
+      return;
+    }
+    if (!reqId) {
+      showValidation(["This OTP session is no longer active. Request a new code first."]);
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      initMsg91Widget(msg91Identifier(channel));
+
+      window.verifyOtp(
+        code,
+        async data => {
+          try {
+            const accessToken = extractMsg91Value(data, [
+              "access-token",
+              "accessToken",
+              "access_token",
+              "token",
+              "jwt"
+            ]);
+
+            if (!accessToken) {
+              throw new Error("MSG91 verified the OTP but did not return a verification token.");
+            }
+
+            const verified = await request("/api/auth/verify-msg91-token", {
+              method: "POST",
+              body: JSON.stringify({
+                username: verificationUsername,
+                channel,
+                accessToken
+              })
+            });
+
+            const nextState = {
+              EMAIL: Boolean(verified.emailVerified),
+              PHONE: Boolean(verified.phoneVerified)
+            };
+
+            setVerificationState(nextState);
+            setVerificationCodes(previous => ({ ...previous, [channel]: "" }));
+
+            if (nextState.EMAIL && nextState.PHONE) {
+              setOtpCooldowns({ EMAIL: 0, PHONE: 0 });
+              setMessage("Both contact methods are verified. You can now sign in.");
+              setStep("login");
+            } else {
+              setMessage(`${channel === "EMAIL" ? "Email" : "Mobile number"} verified. Verify the remaining contact method.`);
+            }
+          } catch (err) {
+            setError(err.message);
+          } finally {
+            setBusy(false);
+          }
+        },
+        error => {
+          setError(error?.message || "Incorrect or expired OTP. Please try again.");
+          setBusy(false);
+        },
+        reqId
+      );
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  }
+
+  function resendMsg91Otp(channel) {
+    if (busy || otpCooldowns[channel] > 0) return;
+    clearMessages();
+
+    const reqId = msg91ReqIds[channel];
+    if (!reqId) {
+      setBusy(true);
+      sendMsg91Otp(channel)
+        .then(() => {
+          setOtpCooldowns(previous => ({ ...previous, [channel]: 30 }));
+          setMessage(`A new ${channel === "EMAIL" ? "email" : "mobile"} OTP has been sent.`);
+        })
+        .catch(err => setError(err.message))
+        .finally(() => setBusy(false));
       return;
     }
 
     setBusy(true);
     try {
-      const data = await request("/api/auth/verify-otp", {
-        method: "POST",
-        body: JSON.stringify({
-          username: verificationUsername,
-          channel,
-          code
-        })
-      });
-
-      const nextState = {
-        EMAIL: Boolean(data.emailVerified),
-        PHONE: Boolean(data.phoneVerified)
-      };
-      setVerificationState(nextState);
-
-      setVerificationCodes(previous => ({ ...previous, [channel]: "" }));
-
-      if (nextState.EMAIL && nextState.PHONE) {
-        setOtpCooldowns({ EMAIL: 0, PHONE: 0 });
-        setMessage("Both contact methods are verified. You can now sign in.");
-        setStep("login");
-      } else {
-        setMessage(`${channel === "EMAIL" ? "Email" : "Mobile number"} verified. Verify the remaining contact method.`);
-      }
+      initMsg91Widget(msg91Identifier(channel));
+      window.retryOtp(
+        channel === "EMAIL" ? "3" : "11",
+        data => {
+          const nextReqId = extractMsg91Value(data, ["reqId", "reqID", "requestId", "requestID"]) || reqId;
+          setMsg91ReqIds(previous => ({ ...previous, [channel]: nextReqId }));
+          setVerificationCodes(previous => ({ ...previous, [channel]: "" }));
+          setOtpCooldowns(previous => ({ ...previous, [channel]: 30 }));
+          setMessage(`A new ${channel === "EMAIL" ? "email" : "mobile"} OTP has been sent.`);
+          setBusy(false);
+        },
+        error => {
+          setError(error?.message || "Unable to resend the OTP. Please try again.");
+          setBusy(false);
+        },
+        reqId
+      );
     } catch (err) {
       setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function resendOtp(channel) {
-    if (busy || otpCooldowns[channel] > 0) return;
-    clearMessages();
-    setBusy(true);
-
-    try {
-      await request("/api/auth/resend-otp", {
-        method: "POST",
-        body: JSON.stringify({
-          username: verificationUsername,
-          channel
-        })
-      });
-      setVerificationCodes(previous => ({ ...previous, [channel]: "" }));
-      setOtpCooldowns(previous => ({ ...previous, [channel]: 30 }));
-      setMessage(`A new ${channel === "EMAIL" ? "email" : "mobile"} verification code has been sent. You can request another after 30 seconds.`);
-    } catch (err) {
-      setError(err.message);
-    } finally {
       setBusy(false);
     }
   }
@@ -1284,7 +1454,7 @@ function App() {
           <div>
             <p className="eyebrow">ACCOUNT VERIFICATION</p>
             <h1>Verify your email and mobile number.</h1>
-            <p>Two independent OTP checks help confirm that the contact details belong to the person creating the account.</p>
+            <p>Two independent OTP checks are handled by MSG91 to confirm the email and mobile contacts before password login is enabled.</p>
           </div>
           <div className="mini-notice"><strong>Security checkpoint</strong><span>Both channels must be verified before password login is enabled.</span></div>
         </section>
@@ -1296,7 +1466,7 @@ function App() {
         <section className="card verification-card">
           <div className="verification-identity">
             <span className="step-icon">✓</span>
-            <div><p className="eyebrow">ACCOUNT</p><h2>{verificationUsername}</h2><p className="muted">Enter each code exactly as received. Codes expire according to the verification provider.</p></div>
+            <div><p className="eyebrow">ACCOUNT</p><h2>{verificationUsername}</h2><p className="muted">Enter the 6-digit code exactly as received. Codes expire according to MSG91.</p></div>
           </div>
 
           <div className="verification-grid">
@@ -1322,8 +1492,8 @@ function App() {
                       placeholder="Enter OTP"
                     />
                     <div className="otp-actions">
-                      <button type="button" onClick={() => verifyOtp(channel)} disabled={busy}>Verify {channel === "EMAIL" ? "email" : "mobile"}</button>
-                      <button type="button" className="secondary-button" onClick={() => resendOtp(channel)} disabled={busy || otpCooldowns[channel] > 0}>{otpCooldowns[channel] > 0 ? `Resend in ${otpCooldowns[channel]}s` : "Resend code"}</button>
+                      <button type="button" onClick={() => verifyMsg91Otp(channel)} disabled={busy}>Verify {channel === "EMAIL" ? "email" : "mobile"}</button>
+                      <button type="button" className="secondary-button" onClick={() => resendMsg91Otp(channel)} disabled={busy || otpCooldowns[channel] > 0}>{otpCooldowns[channel] > 0 ? `Resend in ${otpCooldowns[channel]}s` : "Resend code"}</button>
                     </div>
                   </>
                 )}
