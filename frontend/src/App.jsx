@@ -90,6 +90,7 @@ function App() {
   const [verificationUsername, setVerificationUsername] = useState("");
   const [verificationCodes, setVerificationCodes] = useState({ EMAIL: "", PHONE: "" });
   const [verificationState, setVerificationState] = useState({ EMAIL: false, PHONE: false });
+  const [otpCooldowns, setOtpCooldowns] = useState({ EMAIL: 0, PHONE: 0 });
   const [forgotEmail, setForgotEmail] = useState("");
   const [resetCode, setResetCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -117,6 +118,20 @@ function App() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    const active = Object.values(otpCooldowns).some(value => value > 0);
+    if (!active) return undefined;
+
+    const timer = window.setInterval(() => {
+      setOtpCooldowns(previous => ({
+        EMAIL: Math.max(0, previous.EMAIL - 1),
+        PHONE: Math.max(0, previous.PHONE - 1)
+      }));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [otpCooldowns]);
 
   const requiredDocumentTypes = ["IDENTITY_PROOF", "ADDRESS_PROOF", "PROPERTY_DOCUMENT"];
   const hasRequiredDocuments = requiredDocumentTypes.every(type =>
@@ -151,18 +166,18 @@ function App() {
 
     const data = await response.json().catch(() => ({}));
 
-    if (response.status === 401 || response.status === 403) {
-      sessionStorage.removeItem("property_registration_token");
-      throw new Error("Your session expired or you are not allowed to do that. Please log in again.");
-    }
-
     if (!response.ok) {
+      if (url === "/api/auth/login" && response.status === 401) {
+        throw new Error("Invalid username or password.");
+      }
+
       if ([502, 503, 504].includes(response.status)) {
         throw new Error("The PropertySetu backend is temporarily unavailable or waking up. Please wait a few seconds and try again.");
       }
 
-      if (response.status === 401 && url === "/api/auth/login") {
-        throw new Error("Invalid username or password.");
+      if (response.status === 401 || response.status === 403) {
+        sessionStorage.removeItem("property_registration_token");
+        throw new Error("Your session expired or you are not allowed to do that. Please log in again.");
       }
 
       throw new Error(data.message || data.error || "Request could not be completed. Please try again.");
@@ -221,6 +236,7 @@ function App() {
     setRegisterPasswordError("");
     setRegisterConfirmPassword("");
     setRegisterPasswordVisible(false);
+    setOtpCooldowns({ EMAIL: 0, PHONE: 0 });
     setRegisterConfirmPasswordVisible(false);
     setStep("home");
     clearMessages();
@@ -721,7 +737,10 @@ function App() {
       };
       setVerificationState(nextState);
 
+      setVerificationCodes(previous => ({ ...previous, [channel]: "" }));
+
       if (nextState.EMAIL && nextState.PHONE) {
+        setOtpCooldowns({ EMAIL: 0, PHONE: 0 });
         setMessage("Both contact methods are verified. You can now sign in.");
         setStep("login");
       } else {
@@ -735,7 +754,7 @@ function App() {
   }
 
   async function resendOtp(channel) {
-    if (busy) return;
+    if (busy || otpCooldowns[channel] > 0) return;
     clearMessages();
     setBusy(true);
 
@@ -748,7 +767,8 @@ function App() {
         })
       });
       setVerificationCodes(previous => ({ ...previous, [channel]: "" }));
-      setMessage(`A new ${channel === "EMAIL" ? "email" : "mobile"} verification code has been sent.`);
+      setOtpCooldowns(previous => ({ ...previous, [channel]: 30 }));
+      setMessage(`A new ${channel === "EMAIL" ? "email" : "mobile"} verification code has been sent. You can request another after 30 seconds.`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -809,7 +829,7 @@ function App() {
       setLoginForm({ username: "", password: "" });
       setForgotEmail("");
       setResetCode("");
-      setResetPassword("");
+      setNewPassword("");
       setMessage("Password reset successfully. You can now sign in.");
       setStep("login");
     } catch (err) {
@@ -1219,7 +1239,7 @@ function App() {
                     />
                     <div className="otp-actions">
                       <button type="button" onClick={() => verifyOtp(channel)} disabled={busy}>Verify {channel === "EMAIL" ? "email" : "mobile"}</button>
-                      <button type="button" className="secondary-button" onClick={() => resendOtp(channel)} disabled={busy}>Resend code</button>
+                      <button type="button" className="secondary-button" onClick={() => resendOtp(channel)} disabled={busy || otpCooldowns[channel] > 0}>{otpCooldowns[channel] > 0 ? `Resend in ${otpCooldowns[channel]}s` : "Resend code"}</button>
                     </div>
                   </>
                 )}
@@ -1546,6 +1566,19 @@ function App() {
           <button className="link-button" onClick={logout}>Log out</button>
         </div>
       </header>
+
+      <section className="account-security-card" aria-label="Account verification status">
+        <div>
+          <p className="eyebrow">ACCOUNT SECURITY</p>
+          <h3>Contact verification</h3>
+          <p className="muted">Your applicant account requires both registered contact channels to be verified before password login is enabled.</p>
+        </div>
+        <div className="security-badges">
+          <span className={user?.emailVerified ? "verified" : "pending"}>✉ {user?.emailVerified ? "Email verified" : "Email pending"}</span>
+          <span className={user?.phoneVerified ? "verified" : "pending"}>⌕ {user?.phoneVerified ? "Mobile verified" : "Mobile pending"}</span>
+          <span className="verified">🔐 JWT session</span>
+        </div>
+      </section>
 
       <section className="applicant-status-bar">
         <div>
