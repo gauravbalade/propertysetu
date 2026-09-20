@@ -176,7 +176,7 @@ public class UserAccountService {
     }
 
     @Transactional
-    public void resetPasswordWithDemoOtp(com.gaurav.property.dto.DemoOtpRequest request, String newPassword) {
+    public void resetPasswordWithDemoOtp(com.gaurav.property.dto.DemoOtpRequest request) {
         UserAccount user = userAccountRepository.findByUsername(request.getUsername())
                 .orElseThrow(() -> new RuntimeException("Account not found"));
 
@@ -186,6 +186,11 @@ public class UserAccountService {
 
         if (!demoOtpService.verify(user.getUsername(), "RESET", request.getCode())) {
             throw new RuntimeException("Incorrect or expired demo reset OTP. Request a new code and try again.");
+        }
+
+        String newPassword = request.getNewPassword();
+        if (newPassword == null || newPassword.length() < 6 || newPassword.length() > 100) {
+            throw new RuntimeException("Password must be between 6 and 100 characters.");
         }
 
         user.setPassword(passwordEncoder.encode(newPassword));
