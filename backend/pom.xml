@@ -134,6 +134,9 @@
 						<configuration>
 							<proc>full</proc>
 							<parameters>true</parameters>
+							<annotationProcessors>
+								<annotationProcessor>lombok.launch.AnnotationProcessorHider$AnnotationProcessor</annotationProcessor>
+							</annotationProcessors>
 							<annotationProcessorPaths>
 								<path>
 									<groupId>org.projectlombok</groupId>
