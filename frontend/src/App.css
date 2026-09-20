@@ -2477,3 +2477,8 @@ input[type="file"] {
     justify-content: flex-start;
   }
 }
+
+
+.verified-text {
+  color: #167044;
+}
