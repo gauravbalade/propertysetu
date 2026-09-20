@@ -16,4 +16,6 @@ public class DemoOtpRequest {
     private String channel;
 
     private String code;
+
+    private String newPassword;
 }
