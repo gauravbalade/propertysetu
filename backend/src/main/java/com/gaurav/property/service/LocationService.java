@@ -31,6 +31,28 @@ public class LocationService {
         return locationRepository.findByPropertyId(propertyId).orElse(null);
     }
 
+    public Location updateLocation(Long locationId, LocationRequest request) {
+        Location location = locationRepository.findById(locationId)
+                .orElseThrow(() -> new RuntimeException("Location not found"));
+        authorizationService.requireOwner(location.getProperty().getOwner().getUserAccount());
+
+        location.setAddress(request.getAddress().trim());
+        location.setCity(request.getCity().trim());
+        location.setDistrict(request.getDistrict().trim());
+        location.setState(request.getState().trim());
+        location.setPincode(request.getPincode().trim());
+
+        return locationRepository.save(location);
+    }
+
+    public void deleteLocation(Long locationId) {
+        Location location = locationRepository.findById(locationId)
+                .orElseThrow(() -> new RuntimeException("Location not found"));
+        authorizationService.requireOwner(location.getProperty().getOwner().getUserAccount());
+
+        locationRepository.delete(location);
+    }
+
     public Location createLocation(LocationRequest request) {
 
         Property property = propertyRepository.findById(request.getPropertyId())
