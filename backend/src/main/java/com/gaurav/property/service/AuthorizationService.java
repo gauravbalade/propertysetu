@@ -33,6 +33,16 @@ public class AuthorizationService {
         }
     }
 
+    public UserAccount requireAdmin() {
+        Authentication authentication = authentication();
+        boolean admin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_" + UserRole.ADMIN.name()));
+        if (!admin) {
+            throw new RuntimeException("Admin access is required");
+        }
+        return currentUser();
+    }
+
     public boolean isOfficer() {
         Authentication authentication = authentication();
         return authentication.getAuthorities().stream()
