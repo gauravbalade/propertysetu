@@ -50,4 +50,65 @@ public class Verification {
     @ManyToOne
     @JoinColumn(name = "verified_by")
     private UserAccount verifiedBy;
+
+    public Verification(Long id, RegistrationApplication application, LocalDateTime verificationDate, VerificationStatus status, String remarks, UserAccount verifiedBy) {
+        this.id = id;
+        this.application = application;
+        this.verificationDate = verificationDate;
+        this.status = status;
+        this.remarks = remarks;
+        this.verifiedBy = verifiedBy;
+    }
+
+    public Verification() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public RegistrationApplication getApplication() {
+        return this.application;
+    }
+
+    public void setApplication(RegistrationApplication application) {
+        this.application = application;
+    }
+
+    public LocalDateTime getVerificationDate() {
+        return this.verificationDate;
+    }
+
+    public void setVerificationDate(LocalDateTime verificationDate) {
+        this.verificationDate = verificationDate;
+    }
+
+    public VerificationStatus getStatus() {
+        return this.status;
+    }
+
+    public void setStatus(VerificationStatus status) {
+        this.status = status;
+    }
+
+    public String getRemarks() {
+        return this.remarks;
+    }
+
+    public void setRemarks(String remarks) {
+        this.remarks = remarks;
+    }
+
+    public UserAccount getVerifiedBy() {
+        return this.verifiedBy;
+    }
+
+    public void setVerifiedBy(UserAccount verifiedBy) {
+        this.verifiedBy = verifiedBy;
+    }
+
 }
