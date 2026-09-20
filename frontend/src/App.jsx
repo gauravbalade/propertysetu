@@ -192,16 +192,28 @@ function App() {
 
     let response;
 
-    try {
-      response = await fetch(API + url, {
-        ...options,
-        headers: {
-          ...headers,
-          ...options.headers
+    let lastNetworkError = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        response = await fetch(API + url, {
+          ...options,
+          headers: {
+            ...headers,
+            ...options.headers
+          }
+        });
+        lastNetworkError = null;
+        break;
+      } catch (error) {
+        lastNetworkError = error;
+        if (attempt < 2) {
+          await new Promise(resolve => setTimeout(resolve, 2500 * (attempt + 1)));
         }
-      });
-    } catch {
-      throw new Error("We couldn't reach the PropertySetu backend. It may be waking up; please wait a few seconds and try again.");
+      }
+    }
+
+    if (!response) {
+      throw new Error("The PropertySetu backend is waking up or temporarily unreachable. We retried automatically; please wait a few seconds and try again.");
     }
 
     if (response.status === 204) {
