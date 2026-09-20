@@ -62,12 +62,15 @@ public class UserAccountService {
             existingByUsername.setPassword(passwordEncoder.encode(request.getPassword()));
             existingByUsername.setEmail(email);
             existingByUsername.setPhone(phone);
+            existingByUsername.setActive(true);
+            existingByUsername.setEmailVerified(true);
+            existingByUsername.setPhoneVerified(true);
 
             UserAccount saved = userAccountRepository.save(existingByUsername);
             auditService.record("ACCOUNT_REGISTRATION_RETRIED", "USER", saved.getId(),
-                    saved, "Pending account registration resumed; contact verification remains required");
+                    saved, "Pending academic account registration resumed");
 
-            return toResponse(saved, null, !isFullyVerified(saved));
+            return toResponse(saved, jwtService.generateToken(saved), false);
         }
 
         UserAccount existingByEmail = userAccountRepository.findByEmail(email).orElse(null);
@@ -81,29 +84,22 @@ public class UserAccountService {
                 .email(email)
                 .phone(phone)
                 .role(UserRole.APPLICANT)
-                .active(false)
-                .emailVerified(false)
-                .phoneVerified(false)
+                .active(true)
+                .emailVerified(true)
+                .phoneVerified(true)
                 .build();
 
         UserAccount savedUser = userAccountRepository.save(user);
 
-        auditService.record("ACCOUNT_CREATED_PENDING_VERIFICATION", "USER", savedUser.getId(),
-                savedUser, "Account created; email and mobile verification required");
+        auditService.record("ACCOUNT_CREATED", "USER", savedUser.getId(),
+                savedUser, "Academic applicant account created without mandatory OTP onboarding");
 
-        return toResponse(savedUser, null, true);
+        return toResponse(savedUser, jwtService.generateToken(savedUser), false);
     }
     public UserResponse login(LoginRequest request) {
         UserAccount user = userAccountRepository
                 .findByUsername(request.getUsername())
                 .orElseThrow(() -> new RuntimeException("Invalid username or password"));
-
-        if (user.getRole() == UserRole.APPLICANT
-                && (!Boolean.TRUE.equals(user.getEmailVerified())
-                || !Boolean.TRUE.equals(user.getPhoneVerified()))) {
-            throw new RuntimeException(
-                    "Account verification is incomplete. Verify your email and mobile OTP before logging in.");
-        }
 
         if (!Boolean.TRUE.equals(user.getActive())) {
             throw new RuntimeException("Account is inactive");
