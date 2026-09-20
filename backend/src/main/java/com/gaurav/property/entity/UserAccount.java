@@ -75,4 +75,83 @@ public class UserAccount {
     @Column(nullable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    public UserAccount(Long id, String username, String password, String email, String phone, String emailVerificationSid, String phoneVerificationSid, String passwordResetVerificationSid) {
+        this.id = id;
+        this.username = username;
+        this.password = password;
+        this.email = email;
+        this.phone = phone;
+        this.emailVerificationSid = emailVerificationSid;
+        this.phoneVerificationSid = phoneVerificationSid;
+        this.passwordResetVerificationSid = passwordResetVerificationSid;
+    }
+
+    public UserAccount() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getUsername() {
+        return this.username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getPassword() {
+        return this.password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public String getEmail() {
+        return this.email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPhone() {
+        return this.phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getEmailVerificationSid() {
+        return this.emailVerificationSid;
+    }
+
+    public void setEmailVerificationSid(String emailVerificationSid) {
+        this.emailVerificationSid = emailVerificationSid;
+    }
+
+    public String getPhoneVerificationSid() {
+        return this.phoneVerificationSid;
+    }
+
+    public void setPhoneVerificationSid(String phoneVerificationSid) {
+        this.phoneVerificationSid = phoneVerificationSid;
+    }
+
+    public String getPasswordResetVerificationSid() {
+        return this.passwordResetVerificationSid;
+    }
+
+    public void setPasswordResetVerificationSid(String passwordResetVerificationSid) {
+        this.passwordResetVerificationSid = passwordResetVerificationSid;
+    }
+
 }
