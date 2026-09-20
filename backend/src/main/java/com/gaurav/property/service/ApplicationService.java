@@ -23,6 +23,7 @@ public class ApplicationService {
     private final RegistrationApplicationRepository applicationRepository;
     private final PropertyRepository propertyRepository;
     private final DocumentRepository documentRepository;
+    private final DocumentService documentService;
     private final AuthorizationService authorizationService;
     private final AuditService auditService;
 
@@ -30,11 +31,13 @@ public class ApplicationService {
             RegistrationApplicationRepository applicationRepository,
             PropertyRepository propertyRepository,
             DocumentRepository documentRepository,
+            DocumentService documentService,
             AuthorizationService authorizationService,
             AuditService auditService) {
         this.applicationRepository = applicationRepository;
         this.propertyRepository = propertyRepository;
         this.documentRepository = documentRepository;
+        this.documentService = documentService;
         this.authorizationService = authorizationService;
         this.auditService = auditService;
     }
@@ -133,10 +136,10 @@ public class ApplicationService {
             throw new RuntimeException("Only DRAFT applications can be deleted.");
         }
 
-        List<com.gaurav.property.entity.Document> documents =
-                documentRepository.findByApplicationId(applicationId);
-        for (com.gaurav.property.entity.Document document : documents) {
-            documentRepository.delete(document);
+        try {
+            documentService.removeAllDocumentsForApplication(applicationId);
+        } catch (java.io.IOException ex) {
+            throw new RuntimeException("Unable to remove the draft application documents safely.");
         }
 
         applicationRepository.delete(application);
