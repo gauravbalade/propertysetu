@@ -78,18 +78,19 @@ public class UserAccountService {
                 .findByUsername(request.getUsername())
                 .orElseThrow(() -> new RuntimeException("Invalid username or password"));
 
+        if (user.getRole() == UserRole.APPLICANT
+                && (!Boolean.TRUE.equals(user.getEmailVerified())
+                || !Boolean.TRUE.equals(user.getPhoneVerified()))) {
+            throw new RuntimeException(
+                    "Account verification is incomplete. Verify your email and mobile OTP before logging in.");
+        }
+
         if (!Boolean.TRUE.equals(user.getActive())) {
-            if (user.getRole() == UserRole.APPLICANT
-                    && (!Boolean.TRUE.equals(user.getEmailVerified())
-                    || !Boolean.TRUE.equals(user.getPhoneVerified()))) {
-                throw new RuntimeException(
-                        "Account verification is incomplete. Verify your email and mobile OTP before logging in.");
-            }
             throw new RuntimeException("Account is inactive");
         }
 
-        // Applicant accounts require both contact channels. Officer/admin accounts are
-        // provisioned separately and should not be made unusable by legacy contact data.
+        // Officer/admin accounts are provisioned separately and are not blocked by
+        // legacy applicant contact-verification fields.
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new RuntimeException("Invalid username or password");
