@@ -33,9 +33,10 @@ public class TwilioVerificationService {
 
         try {
             Twilio.init(accountSid, authToken);
-            Verification verification = Verification.creator(serviceSid)
-                    .setTo(destination)
-                    .setChannel(channel.toLowerCase())
+            Verification verification = Verification.creator(
+                    serviceSid,
+                    destination,
+                    channel.toLowerCase())
                     .create();
 
             return verification.getSid();
