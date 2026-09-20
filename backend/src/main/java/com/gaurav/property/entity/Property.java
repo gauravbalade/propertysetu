@@ -51,19 +51,7 @@ public class Property {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
-    public Property(Long id, String propertyNumber, Owner owner, String propertyType, BigDecimal area, String description, String registrationStatus, LocalDateTime createdAt) {
-        this.id = id;
-        this.propertyNumber = propertyNumber;
-        this.owner = owner;
-        this.propertyType = propertyType;
-        this.area = area;
-        this.description = description;
-        this.registrationStatus = registrationStatus;
-        this.createdAt = createdAt;
-    }
 
-    public Property() {
-    }
 
     public Long getId() {
         return this.id;
