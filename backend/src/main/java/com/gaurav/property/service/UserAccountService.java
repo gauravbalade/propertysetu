@@ -40,19 +40,43 @@ public class UserAccountService {
 
     @Transactional
     public UserResponse register(RegisterRequest request) {
-        if (userAccountRepository.existsByUsername(request.getUsername())) {
-            throw new RuntimeException("Username already exists. If this is your account, use OTP verification.");
+        String username = request.getUsername().trim();
+        String email = request.getEmail().trim().toLowerCase();
+        String phone = request.getPhone().trim();
+
+        UserAccount existingByUsername = userAccountRepository.findByUsername(username).orElse(null);
+        if (existingByUsername != null) {
+            boolean samePendingAccount =
+                    existingByUsername.getRole() == UserRole.APPLICANT
+                    && !Boolean.TRUE.equals(existingByUsername.getActive())
+                    && email.equalsIgnoreCase(existingByUsername.getEmail())
+                    && phone.equals(existingByUsername.getPhone());
+
+            if (!samePendingAccount) {
+                throw new RuntimeException("Username already exists. Use the existing account or choose another username.");
+            }
+
+            existingByUsername.setPassword(passwordEncoder.encode(request.getPassword()));
+            existingByUsername.setEmail(email);
+            existingByUsername.setPhone(phone);
+
+            UserAccount saved = userAccountRepository.save(existingByUsername);
+            auditService.record("ACCOUNT_REGISTRATION_RETRIED", "USER", saved.getId(),
+                    saved, "Pending account registration resumed; contact verification remains required");
+
+            return toResponse(saved, null, !isFullyVerified(saved));
         }
 
-        if (userAccountRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already exists. If this is your account, use OTP verification.");
+        UserAccount existingByEmail = userAccountRepository.findByEmail(email).orElse(null);
+        if (existingByEmail != null) {
+            throw new RuntimeException("Email already exists. Use the existing account or choose another email address.");
         }
 
         UserAccount user = UserAccount.builder()
-                .username(request.getUsername().trim())
+                .username(username)
                 .password(passwordEncoder.encode(request.getPassword()))
-                .email(request.getEmail().trim().toLowerCase())
-                .phone(request.getPhone().trim())
+                .email(email)
+                .phone(phone)
                 .role(UserRole.APPLICANT)
                 .active(false)
                 .emailVerified(false)
