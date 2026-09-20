@@ -44,7 +44,7 @@ public class DemoOtpService {
         }
 
         boolean matches = entry.code().equals(code == null ? "" : code.trim());
-        if (matches) {
+        if (matches && !"RESET".equals(normalizedChannel)) {
             activeOtps.remove(key(username, normalizedChannel));
         }
         return matches;
