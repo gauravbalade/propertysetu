@@ -142,8 +142,7 @@ public class UserAccountService {
 
     @Transactional
     public UserResponse verifyDemoOtp(com.gaurav.property.dto.DemoOtpRequest request) {
-        UserAccount user = userAccountRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new RuntimeException("Account not found"));
+        UserAccount user = findUserByIdentifier(request.getUsername());
 
         String channel = request.getChannel().trim().toUpperCase();
         if (!"EMAIL".equals(channel) && !"PHONE".equals(channel) && !"RESET".equals(channel)) {
