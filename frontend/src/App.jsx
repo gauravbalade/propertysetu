@@ -1985,7 +1985,7 @@ function App() {
               <div>
                 <p className="eyebrow">ADMIN USER MANAGEMENT</p>
                 <h2>Users & access control</h2>
-                <p className="muted">View every PropertySetu account and update role, active status and contact-verification flags. Passwords are never displayed.</p>
+                <p className="muted">View every PropertySetu account stored in TiDB Cloud and update role, active status and contact-verification flags. Passwords are never displayed.</p>
               </div>
               <button type="button" className="secondary-button" onClick={loadAdminUsers} disabled={adminUsersLoading}>
                 {adminUsersLoading ? "Refreshing…" : "Refresh users"}
