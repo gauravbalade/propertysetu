@@ -23,7 +23,6 @@ public class UserAccountService {
     private final UserAccountRepository userAccountRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-    private final TwilioVerificationService twilioVerificationService;
     private final Msg91WidgetService msg91WidgetService;
     private final AuditService auditService;
 
@@ -31,7 +30,6 @@ public class UserAccountService {
             UserAccountRepository userAccountRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
-            TwilioVerificationService twilioVerificationService,
             Msg91WidgetService msg91WidgetService,
             AuditService auditService) {
         this.userAccountRepository = userAccountRepository;
@@ -150,64 +148,42 @@ public class UserAccountService {
                 .orElseThrow(() -> new RuntimeException("Account not found"));
 
         String channel = request.getChannel().trim().toUpperCase();
-
+        if (!"EMAIL".equals(channel) && !"PHONE".equals(channel)) {
+            throw new RuntimeException("Verification channel must be EMAIL or PHONE.");
+        }
         if ("EMAIL".equals(channel) && Boolean.TRUE.equals(user.getEmailVerified())) {
             throw new RuntimeException("Email is already verified.");
         }
-
         if ("PHONE".equals(channel) && Boolean.TRUE.equals(user.getPhoneVerified())) {
             throw new RuntimeException("Mobile number is already verified.");
         }
 
-        String sid;
-        if ("EMAIL".equals(channel)) {
-            sid = twilioVerificationService.send(user.getEmail(), "email");
-            user.setEmailVerificationSid(sid);
-        } else {
-            sid = twilioVerificationService.send(normalizeIndianPhone(user.getPhone()), "sms");
-            user.setPhoneVerificationSid(sid);
-        }
-
-        UserAccount saved = userAccountRepository.save(user);
-        auditService.record("OTP_RESENT_" + channel, "USER", saved.getId(),
-                saved, channel + " verification code resent");
-
-        return toResponse(saved, null, true);
+        // OTP delivery is performed by the MSG91 Widget on the client. This endpoint
+        // remains for API compatibility; the UI uses MSG91 retryOtp instead.
+        throw new RuntimeException("Use the MSG91 verification screen to resend the OTP.");
     }
 
     @Transactional
     public void requestPasswordReset(ForgotPasswordRequest request) {
-        userAccountRepository.findByEmail(request.getEmail().trim().toLowerCase())
-                .ifPresent(user -> {
-                    if (!twilioVerificationService.isConfigured()) {
-                        throw new RuntimeException(
-                                "Password recovery is temporarily unavailable. Please try again later.");
-                    }
-
-                    String sid = twilioVerificationService.send(user.getEmail(), "email");
-                    user.setPasswordResetVerificationSid(sid);
-                    userAccountRepository.save(user);
-
-                    auditService.record("PASSWORD_RESET_REQUESTED", "USER", user.getId(),
-                            user, "Password reset verification requested");
-                });
+        // Keep this response deliberately non-enumerating. The frontend then starts
+        // the MSG91 email OTP flow using the same widget as account verification.
+        String email = request.getEmail().trim().toLowerCase();
+        userAccountRepository.findByEmail(email).ifPresent(user ->
+                auditService.record("PASSWORD_RESET_REQUESTED", "USER", user.getId(),
+                        user, "Password reset verification requested through MSG91"));
     }
 
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
-        UserAccount user = userAccountRepository.findByEmail(request.getEmail().trim().toLowerCase())
+        String email = request.getEmail().trim().toLowerCase();
+        UserAccount user = userAccountRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Password reset request is invalid or expired"));
 
-        if (user.getPasswordResetVerificationSid() == null
-                || user.getPasswordResetVerificationSid().isBlank()) {
-            throw new RuntimeException("Password reset request is invalid or expired");
-        }
+        com.fasterxml.jackson.databind.JsonNode verification =
+                msg91WidgetService.verifyAccessToken(request.getAccessToken());
 
-        boolean approved = twilioVerificationService.verify(
-                user.getEmail(), request.getCode().trim());
-
-        if (!approved) {
-            throw new RuntimeException("Incorrect or expired password reset OTP.");
+        if (!msg91WidgetService.containsIdentifier(verification, user.getEmail())) {
+            throw new RuntimeException("The verified email does not match this PropertySetu account.");
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
@@ -215,7 +191,7 @@ public class UserAccountService {
         userAccountRepository.save(user);
 
         auditService.record("PASSWORD_RESET_COMPLETED", "USER", user.getId(),
-                user, "Password reset completed after email verification");
+                user, "Password reset completed after MSG91 email verification");
     }
 
     private boolean isFullyVerified(UserAccount user) {
