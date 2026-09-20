@@ -123,6 +123,8 @@ public class AdminUserService {
                 null,
                 false,
                 Boolean.TRUE.equals(user.getEmailVerified()),
-                Boolean.TRUE.equals(user.getPhoneVerified()));
+                Boolean.TRUE.equals(user.getPhoneVerified()),
+                Boolean.TRUE.equals(user.getActive()),
+                user.getCreatedAt());
     }
 }
