@@ -28,13 +28,13 @@ Payment functionality is provided through Razorpay Test Mode when server-side te
 
 PropertySetu is a security-conscious academic product concept that makes a property application easier to understand, submit, pay for, and review through one traceable workflow.
 
-> **Product promise:** one guided application journey, verified contact channels, protected documents, accountable review, secure hosted payment, and a clear status trail.
+> **Product promise:** one guided application journey, protected documents, accountable review, secure hosted payment, and a clear status trail.
 
 This is an academic MVP and demonstration platform—not a government service or a substitute for legal advice. Exact requirements vary by transaction and registering office.
 
 ## What the system does
 
-Applicants can create an account, verify their email and mobile number with OTPs, enter owner and property information, edit draft records, save the property location, upload/replace/remove supporting documents, submit an application, recover a forgotten password, and complete a clearly labelled Razorpay Test Mode payment. Draft applications can be edited or deleted; once an application leaves DRAFT status, its core property/location/application data is frozen by the backend.
+Applicants can create an account, enter owner and property information, edit draft records, save the property location, upload/replace/remove supporting documents, submit an application, recover a forgotten password, and complete a clearly labelled Razorpay Test Mode payment. Email and mobile details are stored with the account; OTP verification is reserved for password recovery rather than being a mandatory onboarding step. Draft applications can be edited or deleted; once an application leaves DRAFT status, its core property/location/application data is frozen by the backend.
 
 Officers can sign in to a protected dashboard, search applications, filter by status, review the submitted information, and verify or reject eligible paid applications.
 
@@ -56,10 +56,10 @@ PropertyRegistrationSystem/
 
 - Frontend: React 19, Vite, responsive CSS
 - Backend: Spring Boot 4.1.1, Spring Web, Spring Data JPA, Spring Security
-- Database: MySQL 8 on local port `3307`
-- Authentication: BCrypt passwords, stateless JWT bearer tokens, email OTP + mobile OTP for applicant onboarding
+- Database: TiDB Cloud for the deployed academic environment (MySQL-compatible SQL); MySQL may be used locally
+- Authentication: BCrypt passwords and stateless JWT bearer tokens; applicant onboarding is direct and password recovery uses OTP
 - Recovery: email OTP password reset
-- Verification provider: Twilio Verify v2
+- Verification/recovery: MSG91 integration is retained for optional contact verification and password recovery; the academic deployment can use its server-side demo OTP fallback
 - Uploads: multipart document upload stored outside the database
 - Payment: Razorpay Orders API + Standard Checkout + server-side signature/amount verification + webhook reconciliation
 - Transactional notifications: optional SendGrid application-status email
@@ -84,8 +84,9 @@ JWT_SECRET=replace-with-at-least-32-characters
 UPLOAD_DIR=D:/PropertyRegistrationSystem/demo/uploads
 FRONTEND_ORIGIN=http://localhost:5173
 FRONTEND_ORIGINS=https://frontend-six-amber-63.vercel.app
-TWILIO_ACCOUNT_SID=your-twilio-account-sid
-TWILIO_AUTH_TOKEN=your-twilio-auth-token
+# Optional MSG91 widget configuration is only needed for real OTP delivery
+VITE_MSG91_WIDGET_ID=
+VITE_MSG91_WIDGET_TOKEN=
 TWILIO_VERIFY_SERVICE_SID=your-twilio-verify-service-sid
 RAZORPAY_KEY_ID=rzp_test_your-key-id
 RAZORPAY_KEY_SECRET=your-test-key-secret
