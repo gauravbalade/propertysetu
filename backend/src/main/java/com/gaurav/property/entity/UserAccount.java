@@ -154,4 +154,33 @@ public class UserAccount {
         this.passwordResetVerificationSid = passwordResetVerificationSid;
     }
 
+    public Boolean getEmailVerified() { return emailVerified; }
+    public void setEmailVerified(Boolean emailVerified) { this.emailVerified = emailVerified; }
+    public Boolean getPhoneVerified() { return phoneVerified; }
+    public void setPhoneVerified(Boolean phoneVerified) { this.phoneVerified = phoneVerified; }
+    public UserRole getRole() { return role; }
+    public void setRole(UserRole role) { this.role = role; }
+    public Boolean getActive() { return active; }
+    public void setActive(Boolean active) { this.active = active; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public static Builder builder() { return new Builder(); }
+    public static class Builder {
+        private final UserAccount value = new UserAccount();
+        public Builder username(String value) { this.value.username = value; return this; }
+        public Builder password(String value) { this.value.password = value; return this; }
+        public Builder email(String value) { this.value.email = value; return this; }
+        public Builder phone(String value) { this.value.phone = value; return this; }
+        public Builder role(UserRole value) { this.value.role = value; return this; }
+        public Builder active(Boolean value) { this.value.active = value; return this; }
+        public Builder emailVerified(Boolean value) { this.value.emailVerified = value; return this; }
+        public Builder phoneVerified(Boolean value) { this.value.phoneVerified = value; return this; }
+        public Builder emailVerificationSid(String value) { this.value.emailVerificationSid = value; return this; }
+        public Builder phoneVerificationSid(String value) { this.value.phoneVerificationSid = value; return this; }
+        public Builder passwordResetVerificationSid(String value) { this.value.passwordResetVerificationSid = value; return this; }
+        public Builder createdAt(LocalDateTime value) { this.value.createdAt = value; return this; }
+        public UserAccount build() { return this.value; }
+    }
+
 }
