@@ -51,17 +51,7 @@ public class Verification {
     @JoinColumn(name = "verified_by")
     private UserAccount verifiedBy;
 
-    public Verification(Long id, RegistrationApplication application, LocalDateTime verificationDate, VerificationStatus status, String remarks, UserAccount verifiedBy) {
-        this.id = id;
-        this.application = application;
-        this.verificationDate = verificationDate;
-        this.status = status;
-        this.remarks = remarks;
-        this.verifiedBy = verifiedBy;
-    }
 
-    public Verification() {
-    }
 
     public Long getId() {
         return this.id;
