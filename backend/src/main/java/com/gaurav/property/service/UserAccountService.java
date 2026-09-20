@@ -120,8 +120,7 @@ public class UserAccountService {
     }
 
     public com.gaurav.property.dto.DemoOtpResponse sendDemoOtp(String username, String channel) {
-        UserAccount user = userAccountRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("Account not found"));
+        UserAccount user = findUserByIdentifier(username);
 
         String normalizedChannel = channel == null ? "" : channel.trim().toUpperCase();
         if (!"RESET".equals(normalizedChannel)
@@ -289,6 +288,13 @@ public class UserAccountService {
 
         auditService.record("PASSWORD_RESET_COMPLETED", "USER", user.getId(),
                 user, "Password reset completed after MSG91 email verification");
+    }
+
+    private UserAccount findUserByIdentifier(String identifier) {
+        String value = identifier == null ? "" : identifier.trim();
+        return userAccountRepository.findByUsername(value)
+                .or(() -> userAccountRepository.findByEmail(value.toLowerCase()))
+                .orElseThrow(() -> new RuntimeException("Account not found"));
     }
 
     private boolean isFullyVerified(UserAccount user) {
