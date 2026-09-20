@@ -50,4 +50,83 @@ public class Property {
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
+
+    public Property(Long id, String propertyNumber, Owner owner, String propertyType, BigDecimal area, String description, String registrationStatus, LocalDateTime createdAt) {
+        this.id = id;
+        this.propertyNumber = propertyNumber;
+        this.owner = owner;
+        this.propertyType = propertyType;
+        this.area = area;
+        this.description = description;
+        this.registrationStatus = registrationStatus;
+        this.createdAt = createdAt;
+    }
+
+    public Property() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getPropertyNumber() {
+        return this.propertyNumber;
+    }
+
+    public void setPropertyNumber(String propertyNumber) {
+        this.propertyNumber = propertyNumber;
+    }
+
+    public Owner getOwner() {
+        return this.owner;
+    }
+
+    public void setOwner(Owner owner) {
+        this.owner = owner;
+    }
+
+    public String getPropertyType() {
+        return this.propertyType;
+    }
+
+    public void setPropertyType(String propertyType) {
+        this.propertyType = propertyType;
+    }
+
+    public BigDecimal getArea() {
+        return this.area;
+    }
+
+    public void setArea(BigDecimal area) {
+        this.area = area;
+    }
+
+    public String getDescription() {
+        return this.description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getRegistrationStatus() {
+        return this.registrationStatus;
+    }
+
+    public void setRegistrationStatus(String registrationStatus) {
+        this.registrationStatus = registrationStatus;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return this.createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
 }
