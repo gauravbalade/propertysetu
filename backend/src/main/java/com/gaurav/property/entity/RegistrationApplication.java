@@ -56,4 +56,83 @@ public class RegistrationApplication {
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
+
+    public RegistrationApplication(Long id, String applicationNumber, UserAccount userAccount, Property property, LocalDate applicationDate, String purpose, ApplicationStatus status, LocalDateTime createdAt) {
+        this.id = id;
+        this.applicationNumber = applicationNumber;
+        this.userAccount = userAccount;
+        this.property = property;
+        this.applicationDate = applicationDate;
+        this.purpose = purpose;
+        this.status = status;
+        this.createdAt = createdAt;
+    }
+
+    public RegistrationApplication() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getApplicationNumber() {
+        return this.applicationNumber;
+    }
+
+    public void setApplicationNumber(String applicationNumber) {
+        this.applicationNumber = applicationNumber;
+    }
+
+    public UserAccount getUserAccount() {
+        return this.userAccount;
+    }
+
+    public void setUserAccount(UserAccount userAccount) {
+        this.userAccount = userAccount;
+    }
+
+    public Property getProperty() {
+        return this.property;
+    }
+
+    public void setProperty(Property property) {
+        this.property = property;
+    }
+
+    public LocalDate getApplicationDate() {
+        return this.applicationDate;
+    }
+
+    public void setApplicationDate(LocalDate applicationDate) {
+        this.applicationDate = applicationDate;
+    }
+
+    public String getPurpose() {
+        return this.purpose;
+    }
+
+    public void setPurpose(String purpose) {
+        this.purpose = purpose;
+    }
+
+    public ApplicationStatus getStatus() {
+        return this.status;
+    }
+
+    public void setStatus(ApplicationStatus status) {
+        this.status = status;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return this.createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
 }
