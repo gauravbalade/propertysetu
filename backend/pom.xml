@@ -132,6 +132,8 @@
 							<goal>compile</goal>
 						</goals>
 						<configuration>
+							<proc>full</proc>
+							<parameters>true</parameters>
 							<annotationProcessorPaths>
 								<path>
 									<groupId>org.projectlombok</groupId>
