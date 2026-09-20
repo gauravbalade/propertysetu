@@ -173,6 +173,7 @@ public class SecurityConfig {
                             "/api/auth/reset-password",
                             "/api/payments/webhook/razorpay",
                             "/api/health",
+                            "/",
                             "/error")
                     .permitAll()
 
