@@ -143,6 +143,32 @@ public class DocumentService {
         return toResponse(saved);
     }
 
+    public void deleteDocument(Long applicationId, Long documentId) throws IOException {
+        RegistrationApplication application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new RuntimeException("Application not found"));
+        assertCanAccess(application);
+
+        if (application.getStatus() != ApplicationStatus.DRAFT) {
+            throw new RuntimeException("Documents can only be removed while the application is in DRAFT status");
+        }
+
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new RuntimeException("Document not found"));
+        if (!document.getApplication().getId().equals(applicationId)) {
+            throw new RuntimeException("Document does not belong to this application");
+        }
+
+        Path storedPath = Paths.get(document.getStoredPath()).toAbsolutePath().normalize();
+        Path uploadRoot = Paths.get(uploadDirectory).toAbsolutePath().normalize();
+        if (storedPath.startsWith(uploadRoot) && Files.isRegularFile(storedPath)) {
+            Files.deleteIfExists(storedPath);
+        }
+
+        documentRepository.delete(document);
+        auditService.record("DOCUMENT_REMOVED", "APPLICATION", applicationId,
+                authorizationService.currentUser(), "Removed " + document.getDocumentType());
+    }
+
     public DocumentDownload downloadDocument(Long applicationId, Long documentId) throws IOException {
         RegistrationApplication application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new RuntimeException("Application not found"));
