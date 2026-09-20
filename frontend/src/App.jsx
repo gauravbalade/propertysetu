@@ -40,6 +40,15 @@ function App() {
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [paymentHistoryLoading, setPaymentHistoryLoading] = useState(false);
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+  const [adminUserForm, setAdminUserForm] = useState({
+    username: "",
+    email: "",
+    phone: "",
+    password: "",
+    role: "OFFICER"
+  });
   const [remarks, setRemarks] = useState(
     "Payment confirmed and all submitted documents were checked successfully."
   );
@@ -320,6 +329,9 @@ function App() {
       if (data.role === "OFFICER" || data.role === "ADMIN") {
         const applicationsData = await request("/api/applications");
         setApplications(applicationsData);
+        if (data.role === "ADMIN") {
+          await loadAdminUsers();
+        }
         setOfficerMode(true);
         setMessage(`Welcome, ${data.username}. Officer workspace is ready.`);
         return;
@@ -1885,18 +1897,82 @@ function App() {
       <main className="app">
         <header className="header">
           <div>
-          <p className="eyebrow">PROPERTYSETU · ACCOUNTABLE REVIEW</p>
-          <h1>Officer verification workspace</h1>
-            <p className="subtitle">Review paid applications and complete verification.</p>
+            <p className="eyebrow">PROPERTYSETU · ROLE-BASED ADMINISTRATION</p>
+            <h1>{user?.role === "ADMIN" ? "Administration & officer review" : "Officer verification workspace"}</h1>
+            <p className="subtitle">{user?.role === "ADMIN" ? "Manage application review and control user access from one protected workspace." : "Review paid applications and complete verification."}</p>
           </div>
           <div>
-            <div className="status">{user ? `${user.username} · Officer` : "Officer Portal"}</div>
+            <div className="status">{user ? `${user.username} · ${user.role}` : "Officer Portal"}</div>
             <button className="link-button" onClick={logout}>Log out</button>
           </div>
         </header>
 
         {message && <div className="message success">{message}</div>}
         {error && <div className="message error">{error}</div>}
+
+        {user?.role === "ADMIN" && (
+          <section className="card admin-user-panel">
+            <div className="timeline-heading">
+              <div>
+                <p className="eyebrow">ADMIN USER MANAGEMENT</p>
+                <h2>Users & access control</h2>
+                <p className="muted">View every PropertySetu account and update role, active status and contact-verification flags. Passwords are never displayed.</p>
+              </div>
+              <button type="button" className="secondary-button" onClick={loadAdminUsers} disabled={adminUsersLoading}>
+                {adminUsersLoading ? "Refreshing…" : "Refresh users"}
+              </button>
+            </div>
+
+            <form className="admin-create-form" onSubmit={createAdminManagedUser}>
+              <div className="field-grid two">
+                <div className="field"><label>Username</label><input value={adminUserForm.username} onChange={e => setAdminUserForm(p => ({...p, username:e.target.value}))} /></div>
+                <div className="field"><label>Email</label><input type="email" value={adminUserForm.email} onChange={e => setAdminUserForm(p => ({...p, email:e.target.value}))} /></div>
+                <div className="field"><label>Mobile</label><input inputMode="numeric" value={adminUserForm.phone} onChange={e => setAdminUserForm(p => ({...p, phone:e.target.value.replace(/\\D/g, "")}))} maxLength={10} /></div>
+                <div className="field"><label>Temporary password</label><input type="password" value={adminUserForm.password} onChange={e => setAdminUserForm(p => ({...p, password:e.target.value}))} /></div>
+              </div>
+              <div className="admin-create-actions">
+                <select value={adminUserForm.role} onChange={e => setAdminUserForm(p => ({...p, role:e.target.value}))}>
+                  <option value="OFFICER">Officer</option>
+                  <option value="ADMIN">Admin</option>
+                  <option value="APPLICANT">Applicant</option>
+                </select>
+                <button type="submit" disabled={busy}>{busy ? "Creating…" : "Create user"}</button>
+              </div>
+            </form>
+
+            {adminUsersLoading && <p className="muted">Loading user accounts from TiDB…</p>}
+            {!adminUsersLoading && adminUsers.length === 0 && <p className="muted">No user accounts found.</p>}
+            {!adminUsersLoading && adminUsers.length > 0 && (
+              <div className="admin-user-list">
+                {adminUsers.map(account => (
+                  <div className="admin-user-row" key={account.id}>
+                    <div className="admin-user-identity">
+                      <strong>{account.username}</strong>
+                      <span>{account.email}</span>
+                      <small>{account.phone || "No mobile"} · ID {account.id} · Created {account.createdAt || "recorded in database"}</small>
+                    </div>
+                    <div className="admin-user-controls">
+                      <select value={account.role} onChange={e => updateAdminManagedUser(account.id, { role: e.target.value })}>
+                        <option value="APPLICANT">Applicant</option>
+                        <option value="OFFICER">Officer</option>
+                        <option value="ADMIN">Admin</option>
+                      </select>
+                      <button type="button" className={account.active ? "status-toggle active" : "status-toggle"} onClick={() => updateAdminManagedUser(account.id, { active: !account.active })}>
+                        {account.active ? "Active" : "Inactive"}
+                      </button>
+                      <button type="button" className={account.emailVerified ? "status-toggle active" : "status-toggle"} onClick={() => updateAdminManagedUser(account.id, { emailVerified: !account.emailVerified })}>
+                        {account.emailVerified ? "Email ✓" : "Email pending"}
+                      </button>
+                      <button type="button" className={account.phoneVerified ? "status-toggle active" : "status-toggle"} onClick={() => updateAdminManagedUser(account.id, { phoneVerified: !account.phoneVerified })}>
+                        {account.phoneVerified ? "Mobile ✓" : "Mobile pending"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         <section className="dashboard-grid">
           <div className="card application-list">
