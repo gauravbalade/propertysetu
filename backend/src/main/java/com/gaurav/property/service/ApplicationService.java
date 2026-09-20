@@ -104,6 +104,46 @@ public class ApplicationService {
                 application.getCreatedAt());
     }
 
+    public RegistrationApplication updateApplication(Long applicationId, ApplicationRequest request) {
+        RegistrationApplication application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new RuntimeException("Application not found"));
+        authorizationService.requireOwner(application.getUserAccount());
+
+        if (application.getStatus() != ApplicationStatus.DRAFT) {
+            throw new RuntimeException("Only DRAFT applications can be edited.");
+        }
+
+        if (!application.getProperty().getId().equals(request.getPropertyId())) {
+            throw new RuntimeException("The property connected to an application cannot be changed.");
+        }
+
+        application.setPurpose(request.getPurpose().trim());
+        RegistrationApplication saved = applicationRepository.save(application);
+        auditService.record("APPLICATION_UPDATED", "APPLICATION", applicationId,
+                authorizationService.currentUser(), "Draft application details updated");
+        return saved;
+    }
+
+    public void deleteApplication(Long applicationId) {
+        RegistrationApplication application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new RuntimeException("Application not found"));
+        authorizationService.requireOwner(application.getUserAccount());
+
+        if (application.getStatus() != ApplicationStatus.DRAFT) {
+            throw new RuntimeException("Only DRAFT applications can be deleted.");
+        }
+
+        List<com.gaurav.property.entity.Document> documents =
+                documentRepository.findByApplicationId(applicationId);
+        for (com.gaurav.property.entity.Document document : documents) {
+            documentRepository.delete(document);
+        }
+
+        applicationRepository.delete(application);
+        auditService.record("APPLICATION_DELETED", "APPLICATION", applicationId,
+                authorizationService.currentUser(), "Draft application deleted");
+    }
+
     public RegistrationApplication submitApplication(Long applicationId) {
         RegistrationApplication application =
                 applicationRepository.findById(applicationId)
