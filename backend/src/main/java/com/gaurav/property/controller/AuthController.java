@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gaurav.property.dto.DemoOtpRequest;
 import com.gaurav.property.dto.ForgotPasswordRequest;
 import com.gaurav.property.dto.LoginRequest;
 import com.gaurav.property.dto.Msg91VerificationRequest;
@@ -46,6 +47,30 @@ public class AuthController {
         UserResponse response = userAccountService.login(request);
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/demo-otp/send")
+    public ResponseEntity<?> sendDemoOtp(@Valid @RequestBody DemoOtpRequest request) {
+        return ResponseEntity.ok(userAccountService.sendDemoOtp(
+                request.getUsername(),
+                request.getChannel()));
+    }
+
+    @PostMapping("/demo-otp/verify")
+    public ResponseEntity<UserResponse> verifyDemoOtp(
+            @Valid @RequestBody DemoOtpRequest request) {
+        return ResponseEntity.ok(userAccountService.verifyDemoOtp(request));
+    }
+
+    @PostMapping("/demo-otp/reset-password")
+    public ResponseEntity<Void> resetPasswordWithDemoOtp(
+            @Valid @RequestBody DemoOtpRequest request,
+            @org.springframework.web.bind.annotation.RequestParam String newPassword) {
+        if (newPassword == null || newPassword.length() < 6 || newPassword.length() > 100) {
+            throw new RuntimeException("Password must be between 6 and 100 characters.");
+        }
+        userAccountService.resetPasswordWithDemoOtp(request, newPassword);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/verify-msg91-token")
