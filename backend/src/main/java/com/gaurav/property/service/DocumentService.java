@@ -143,6 +143,18 @@ public class DocumentService {
         return toResponse(saved);
     }
 
+    public void removeAllDocumentsForApplication(Long applicationId) throws IOException {
+        List<Document> documents = documentRepository.findByApplicationId(applicationId);
+        for (Document document : documents) {
+            Path storedPath = Paths.get(document.getStoredPath()).toAbsolutePath().normalize();
+            Path uploadRoot = Paths.get(uploadDirectory).toAbsolutePath().normalize();
+            if (storedPath.startsWith(uploadRoot) && Files.isRegularFile(storedPath)) {
+                Files.deleteIfExists(storedPath);
+            }
+            documentRepository.delete(document);
+        }
+    }
+
     public void deleteDocument(Long applicationId, Long documentId) throws IOException {
         RegistrationApplication application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new RuntimeException("Application not found"));
