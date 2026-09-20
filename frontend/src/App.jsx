@@ -87,6 +87,12 @@ function App() {
   const [submissionAcknowledged, setSubmissionAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
   const [backendStatus, setBackendStatus] = useState("checking");
+  const [verificationUsername, setVerificationUsername] = useState("");
+  const [verificationCodes, setVerificationCodes] = useState({ EMAIL: "", PHONE: "" });
+  const [verificationState, setVerificationState] = useState({ EMAIL: false, PHONE: false });
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -355,20 +361,26 @@ function App() {
     setBusy(true);
 
     try {
-      await request("/api/auth/register", {
+      const data = await request("/api/auth/register", {
         method: "POST",
         body: JSON.stringify(registerForm)
       });
 
       setUser(null);
       sessionStorage.removeItem("property_registration_token");
-      setMessage("Applicant account created successfully. Please sign in to continue.");
+      setVerificationUsername(data.username || registerForm.username);
+      setVerificationCodes({ EMAIL: "", PHONE: "" });
+      setVerificationState({
+        EMAIL: Boolean(data.emailVerified),
+        PHONE: Boolean(data.phoneVerified)
+      });
+      setMessage("Account created. We sent one OTP to your email and one to your mobile number. Verify both before signing in.");
       setLoginForm({ username: registerForm.username, password: "" });
       setRegisterForm({ username: "", password: "", email: "", phone: "" });
       setRegisterConfirmPassword("");
       setRegisterPasswordVisible(false);
       setRegisterConfirmPasswordVisible(false);
-      setStep("login");
+      setStep("verify");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -607,7 +619,114 @@ function App() {
       });
 
       setPayment(data);
-      setMessage("Test payment order created successfully.");
+
+      if (!window.Razorpay) {
+        throw new Error("Razorpay Checkout could not be loaded. Please refresh the page and try again.");
+      }
+
+      if (!data.gatewayKeyId) {
+        throw new Error("Razorpay test checkout is not configured on the server yet.");
+      }
+
+      const checkout = new window.Razorpay({
+        key: data.gatewayKeyId,
+        amount: Math.round(Number(data.amount) * 100),
+        currency: data.currency || "INR",
+        name: "PropertySetu",
+        description: "Academic property application demonstration fee",
+        order_id: data.gatewayOrderId,
+        prefill: {
+          name: owner?.name || user?.username || "",
+          email: user?.email || "",
+          contact: user?.phone ? `+91${user.phone}` : ""
+        },
+        notes: {
+          application: application.applicationNumber
+        },
+        theme: {
+          color: "#172033"
+        },
+        handler: async response => {
+          setBusy(true);
+          clearMessages();
+
+          try {
+            const verified = await request("/api/payments/verify", {
+              method: "POST",
+              body: JSON.stringify({
+                paymentId: data.id,
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature
+              })
+            });
+
+            setPayment(verified);
+            setApplication(verified.application);
+            setMessage("Razorpay payment verified successfully.");
+            setStep("paymentComplete");
+
+            void request("/api/applications")
+              .then(refreshedApplications => {
+                const records = refreshedApplications || [];
+                setApplicantApplications(records);
+                void loadPaymentHistory(records);
+              })
+              .catch(() => {});
+          } catch (err) {
+            setError(err.message);
+          } finally {
+            setBusy(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setBusy(false);
+            setMessage("Payment window closed. Your application is still saved and the order can be continued.");
+          }
+        }
+      });
+
+      checkout.open();
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  }
+
+  async function verifyOtp(channel) {
+    if (busy) return;
+    clearMessages();
+
+    const code = verificationCodes[channel].trim();
+    if (!/^\d{4,10}$/.test(code)) {
+      showValidation([`Enter the OTP sent to your ${channel === "EMAIL" ? "email" : "mobile number"}.`]);
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const data = await request("/api/auth/verify-otp", {
+        method: "POST",
+        body: JSON.stringify({
+          username: verificationUsername,
+          channel,
+          code
+        })
+      });
+
+      const nextState = {
+        EMAIL: Boolean(data.emailVerified),
+        PHONE: Boolean(data.phoneVerified)
+      };
+      setVerificationState(nextState);
+
+      if (nextState.EMAIL && nextState.PHONE) {
+        setMessage("Both contact methods are verified. You can now sign in.");
+        setStep("login");
+      } else {
+        setMessage(`${channel === "EMAIL" ? "Email" : "Mobile number"} verified. Verify the remaining contact method.`);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -615,36 +734,84 @@ function App() {
     }
   }
 
-  async function completePayment() {
+  async function resendOtp(channel) {
     if (busy) return;
     clearMessages();
     setBusy(true);
 
     try {
-      const data = await request("/api/payments/verify", {
+      await request("/api/auth/resend-otp", {
         method: "POST",
         body: JSON.stringify({
-          paymentId: payment.id,
-          paymentReference: `TEST_PAYMENT_${payment.id}`,
-          successful: true
+          username: verificationUsername,
+          channel
         })
       });
+      setVerificationCodes(previous => ({ ...previous, [channel]: "" }));
+      setMessage(`A new ${channel === "EMAIL" ? "email" : "mobile"} verification code has been sent.`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
-      setPayment(data);
-      setApplication(data.application);
-      setMessage("Payment completed successfully.");
-      setStep("paymentComplete");
+  async function requestPasswordReset(event) {
+    event.preventDefault();
+    if (busy) return;
+    clearMessages();
 
-      // The success screen can render immediately; refresh history in the background.
-      void request("/api/applications")
-        .then(refreshedApplications => {
-          const records = refreshedApplications || [];
-          setApplicantApplications(records);
-          void loadPaymentHistory(records);
+    if (!/^\S+@\S+\.\S+$/.test(forgotEmail.trim())) {
+      showValidation(["Enter the email address associated with your account."]);
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await request("/api/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email: forgotEmail.trim() })
+      });
+      setMessage("If an account matches that email, a password-reset OTP has been sent.");
+      setResetCode("");
+      setResetPassword("");
+      setStep("resetPassword");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resetPassword(event) {
+    event.preventDefault();
+    if (busy) return;
+    clearMessages();
+
+    const errors = [];
+    if (!/^\d{4,10}$/.test(resetCode.trim())) errors.push("Enter the password-reset OTP.");
+    if (resetPassword.length < 6) errors.push("New password must be at least 6 characters.");
+    if (errors.length) {
+      showValidation(errors);
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await request("/api/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({
+          email: forgotEmail.trim(),
+          code: resetCode.trim(),
+          newPassword: resetPassword
         })
-        .catch(() => {
-          // The confirmed payment response above is already the source of truth for this screen.
-        });
+      });
+      setLoginForm({ username: "", password: "" });
+      setForgotEmail("");
+      setResetCode("");
+      setResetPassword("");
+      setMessage("Password reset successfully. You can now sign in.");
+      setStep("login");
     } catch (err) {
       setError(err.message);
     } finally {
