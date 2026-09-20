@@ -6,7 +6,7 @@ const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 
 const MSG91_WIDGET_ID = import.meta.env.VITE_MSG91_WIDGET_ID?.trim() || "";
 const MSG91_WIDGET_TOKEN = import.meta.env.VITE_MSG91_WIDGET_TOKEN?.trim() || "";
-// MSG91 widget configuration is injected by Vercel at build time.
+// MSG91 is retained for password recovery; applicant onboarding does not require OTP.
 
 const API = configuredApiUrl?.startsWith("http://") ||
   configuredApiUrl?.startsWith("https://")
