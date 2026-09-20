@@ -24,23 +24,21 @@ IGR Maharashtra, or government registration portal.
 No official government property registration is performed
 through this application.
 
-Payment functionality is provided only in test/demo mode
-for academic demonstration and does not represent a real
-government payment service.
+Payment functionality is provided through Razorpay Test Mode when server-side test credentials are configured. No live government fee or official registration payment is represented.
 
-PropertySetu is a secure-by-design academic product concept that makes property registration easier to understand, submit, pay for, and verify through one transparent workflow.
+PropertySetu is a security-conscious academic product concept that makes a property application easier to understand, submit, pay for, and review through one traceable workflow.
 
-> **Product promise:** one guided application journey, protected documents, accountable review, and a clear status trail.
+> **Product promise:** one guided application journey, verified contact channels, protected documents, accountable review, secure hosted payment, and a clear status trail.
 
 This is an academic MVP and demonstration platform—not a government service or a substitute for legal advice. Exact requirements vary by transaction and registering office.
 
 ## What the system does
 
-Applicants can create an account, enter owner and property information, save the property location, upload supporting documents, submit an application, and complete a clearly labelled test-mode registration payment.
+Applicants can create an account, verify their email and mobile number with OTPs, enter owner and property information, save the property location, upload supporting documents, submit an application, recover a forgotten password, and complete a clearly labelled Razorpay Test Mode payment.
 
 Officers can sign in to a protected dashboard, search applications, filter by status, review the submitted information, and verify or reject eligible paid applications.
 
-> **Important:** payment is currently simulated test mode. No real money is collected and no live Razorpay transaction is claimed.
+> **Payment note:** the payment layer is implemented against Razorpay's server-created Orders API and Checkout flow. The backend verifies the returned Razorpay signature and captured amount. The deployment must use Razorpay Test Mode credentials for the academic demo; no live transaction is implied.
 
 ## Project structure
 
@@ -59,9 +57,11 @@ PropertyRegistrationSystem/
 - Frontend: React 19, Vite, responsive CSS
 - Backend: Spring Boot 4.1.1, Spring Web, Spring Data JPA, Spring Security
 - Database: MySQL 8 on local port `3307`
-- Authentication: BCrypt passwords and stateless JWT bearer tokens
+- Authentication: BCrypt passwords, stateless JWT bearer tokens, email OTP + mobile OTP for applicant onboarding
+- Recovery: email OTP password reset
+- Verification provider: Twilio Verify v2
 - Uploads: multipart document upload stored outside the database
-- Payment: test-mode order and payment state transition
+- Payment: Razorpay Orders API + Standard Checkout + server-side signature/amount verification + webhook reconciliation
 
 ## Run locally
 
@@ -82,6 +82,13 @@ DB_PASSWORD=your-local-password
 JWT_SECRET=replace-with-at-least-32-characters
 UPLOAD_DIR=D:/PropertyRegistrationSystem/demo/uploads
 FRONTEND_ORIGIN=http://localhost:5173
+FRONTEND_ORIGINS=https://frontend-six-amber-63.vercel.app
+TWILIO_ACCOUNT_SID=your-twilio-account-sid
+TWILIO_AUTH_TOKEN=your-twilio-auth-token
+TWILIO_VERIFY_SERVICE_SID=your-twilio-verify-service-sid
+RAZORPAY_KEY_ID=rzp_test_your-key-id
+RAZORPAY_KEY_SECRET=your-test-key-secret
+RAZORPAY_WEBHOOK_SECRET=your-webhook-secret
 ```
 
 ### 2. Start the backend
@@ -133,10 +140,11 @@ Create a new applicant account from the application itself. Configure officer cr
 4. Create the registration application.
 5. Upload a PDF, JPG, or PNG document.
 6. Submit the application.
-7. Create and complete the ₹500 test-mode payment.
-8. Log out and sign in with the privately provisioned officer account.
-9. Search for the application, open it, and verify it.
-10. Confirm the application moves from `PAID` to `UNDER_VERIFICATION` to `COMPLETED`.
+7. Create the Razorpay Test Mode order and complete Checkout.
+8. The backend verifies the Razorpay signature and captured amount.
+9. Log out and sign in with the privately provisioned officer account.
+10. Search for the application, open it, and verify it.
+11. Confirm the application moves from `PAID` to `UNDER_VERIFICATION` to `COMPLETED`.
 
 ## Validation already completed
 
@@ -159,3 +167,33 @@ The repository can be published publicly, but a public code repository is not th
 For the first free academic demonstration, use synthetic documents only, keep payment in clearly labelled test mode, restrict CORS to the deployed frontend domain, use a strong production JWT secret, and keep the database on a provider with backups or a persistent storage plan. A public demo is not a government registration service and does not provide legal approval.
 
 Before real-world use, add migration-based schema management with `DDL_AUTO=validate`, private object storage, malware scanning, retention/deletion workflows, rate limiting, managed secrets, HTTPS, monitoring, backups, privacy/legal review, accessibility testing, and a verified payment-provider integration with server-side signature verification.
+
+
+## Account verification
+
+Applicant registration is intentionally a two-channel verification gate:
+
+1. The backend creates the applicant as inactive.
+2. Twilio Verify sends an email OTP and an SMS OTP.
+3. The applicant verifies both channels.
+4. Only after both checks succeed is the applicant account activated for password login.
+5. OTP verification is handled by the verification provider; OTP values are never stored in the PropertySetu database.
+
+For local/deployed use, configure the Twilio Verify service with email and SMS channels. Phone numbers are normalized to Indian E.164 format (`+91XXXXXXXXXX`).
+
+## Razorpay payment architecture
+
+The payment flow is intentionally server-controlled:
+
+1. Applicant submits the application.
+2. Backend creates the Razorpay Order for exactly ₹500 (50,000 paise).
+3. Frontend receives only the public Razorpay Key ID and the server-created Order ID.
+4. Razorpay Standard Checkout opens in the browser.
+5. Checkout returns the Razorpay order ID, payment ID and signature.
+6. Backend verifies the signature using the Razorpay Key Secret.
+7. Backend fetches the payment and checks that it is captured and exactly ₹500.
+8. A signed Razorpay webhook can reconcile the payment asynchronously.
+
+Never put `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, Twilio Auth Token, database passwords, or JWT secrets in the frontend or Git repository.
+
+Razorpay's official guidance requires server-side order creation, signature validation, trusted order IDs, and secure handling of API secrets. Twilio Verify's current API provides verification start/check flows for SMS and email channels.
