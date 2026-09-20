@@ -27,7 +27,6 @@ public class ApplicationService {
     private final AuthorizationService authorizationService;
     private final AuditService auditService;
     private final NotificationService notificationService;
-    private final NotificationService notificationService;
 
     public ApplicationService(
             RegistrationApplicationRepository applicationRepository,
@@ -43,7 +42,6 @@ public class ApplicationService {
         this.documentService = documentService;
         this.authorizationService = authorizationService;
         this.auditService = auditService;
-        this.notificationService = notificationService;
         this.notificationService = notificationService;
     }
 
