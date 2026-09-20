@@ -57,19 +57,7 @@ public class RegistrationApplication {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
-    public RegistrationApplication(Long id, String applicationNumber, UserAccount userAccount, Property property, LocalDate applicationDate, String purpose, ApplicationStatus status, LocalDateTime createdAt) {
-        this.id = id;
-        this.applicationNumber = applicationNumber;
-        this.userAccount = userAccount;
-        this.property = property;
-        this.applicationDate = applicationDate;
-        this.purpose = purpose;
-        this.status = status;
-        this.createdAt = createdAt;
-    }
 
-    public RegistrationApplication() {
-    }
 
     public Long getId() {
         return this.id;
