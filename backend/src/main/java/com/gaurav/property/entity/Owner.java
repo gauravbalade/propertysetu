@@ -41,4 +41,65 @@ public class Owner {
 
     @Column(nullable = false, unique = true, length = 30)
     private String identityNumber;
+
+    public Owner(Long id, UserAccount userAccount, String name, String address, String phone, String identityNumber) {
+        this.id = id;
+        this.userAccount = userAccount;
+        this.name = name;
+        this.address = address;
+        this.phone = phone;
+        this.identityNumber = identityNumber;
+    }
+
+    public Owner() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public UserAccount getUserAccount() {
+        return this.userAccount;
+    }
+
+    public void setUserAccount(UserAccount userAccount) {
+        this.userAccount = userAccount;
+    }
+
+    public String getName() {
+        return this.name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getAddress() {
+        return this.address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getPhone() {
+        return this.phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getIdentityNumber() {
+        return this.identityNumber;
+    }
+
+    public void setIdentityNumber(String identityNumber) {
+        this.identityNumber = identityNumber;
+    }
+
 }
