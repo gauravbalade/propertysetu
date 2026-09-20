@@ -162,6 +162,7 @@ public class SecurityConfig {
                             "/api/auth/resend-otp",
                             "/api/auth/forgot-password",
                             "/api/auth/reset-password",
+                            "/api/payments/webhook/razorpay",
                             "/api/health",
                             "/error")
                     .permitAll()
