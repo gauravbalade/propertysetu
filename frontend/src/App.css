@@ -2482,3 +2482,18 @@ input[type="file"] {
 .verified-text {
   color: #167044;
 }
+
+
+.demo-otp-code {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 6px;
+  padding: 6px 9px;
+  border: 1px dashed #9db7ff;
+  border-radius: 8px;
+  background: #eef3ff;
+  color: #2854ca;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .8px;
+}
