@@ -34,7 +34,7 @@ This is an academic MVP and demonstration platform—not a government service or
 
 ## What the system does
 
-Applicants can create an account, verify their email and mobile number with OTPs, enter owner and property information, save the property location, upload supporting documents, submit an application, recover a forgotten password, and complete a clearly labelled Razorpay Test Mode payment.
+Applicants can create an account, verify their email and mobile number with OTPs, enter owner and property information, edit draft records, save the property location, upload/replace/remove supporting documents, submit an application, recover a forgotten password, and complete a clearly labelled Razorpay Test Mode payment. Draft applications can be edited or deleted; once an application leaves DRAFT status, its core property/location/application data is frozen by the backend.
 
 Officers can sign in to a protected dashboard, search applications, filter by status, review the submitted information, and verify or reject eligible paid applications.
 
@@ -62,6 +62,7 @@ PropertyRegistrationSystem/
 - Verification provider: Twilio Verify v2
 - Uploads: multipart document upload stored outside the database
 - Payment: Razorpay Orders API + Standard Checkout + server-side signature/amount verification + webhook reconciliation
+- Transactional notifications: optional SendGrid application-status email
 
 ## Run locally
 
@@ -89,6 +90,9 @@ TWILIO_VERIFY_SERVICE_SID=your-twilio-verify-service-sid
 RAZORPAY_KEY_ID=rzp_test_your-key-id
 RAZORPAY_KEY_SECRET=your-test-key-secret
 RAZORPAY_WEBHOOK_SECRET=your-webhook-secret
+SENDGRID_API_KEY=your-sendgrid-api-key
+SENDGRID_FROM_EMAIL=verified-sender@example.com
+SENDGRID_FROM_NAME=PropertySetu
 ```
 
 ### 2. Start the backend
@@ -196,4 +200,4 @@ The payment flow is intentionally server-controlled:
 
 Never put `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, Twilio Auth Token, database passwords, or JWT secrets in the frontend or Git repository.
 
-Razorpay's official guidance requires server-side order creation, signature validation, trusted order IDs, and secure handling of API secrets. Twilio Verify's current API provides verification start/check flows for SMS and email channels.
+Razorpay's official guidance requires server-side order creation, signature validation, trusted order IDs, and secure handling of API secrets. Twilio Verify's current API provides verification start/check flows for SMS and email channels. The frontend also throttles resend actions to reduce accidental repeated sends; Twilio Verify provides its own verification-attempt protections and configurable service rate limits. Optional SendGrid notifications are best-effort and never block the application or payment transaction.
