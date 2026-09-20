@@ -2318,3 +2318,64 @@ input[type="file"] {
     text-align: left;
   }
 }
+
+
+.account-security-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 0 18px;
+  padding: 20px 22px;
+  border: 1px solid #dbe4f5;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #ffffff, #f7faff);
+  box-shadow: 0 8px 24px rgba(23, 32, 51, .05);
+}
+
+.account-security-card h3 {
+  margin: 3px 0 6px;
+}
+
+.security-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.security-badges span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 11px;
+  border-radius: 999px;
+  border: 1px solid #dbe4f5;
+  background: #fff;
+  color: #667085;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.security-badges .verified {
+  border-color: #b8e2c6;
+  background: #f3fcf6;
+  color: #167044;
+}
+
+.security-badges .pending {
+  border-color: #f0d3b0;
+  background: #fff9f2;
+  color: #9a5a18;
+}
+
+@media (max-width: 760px) {
+  .account-security-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .security-badges {
+    justify-content: flex-start;
+  }
+}
