@@ -34,7 +34,6 @@ public class UserAccountService {
         this.userAccountRepository = userAccountRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
-        this.twilioVerificationService = twilioVerificationService;
         this.msg91WidgetService = msg91WidgetService;
         this.auditService = auditService;
     }
