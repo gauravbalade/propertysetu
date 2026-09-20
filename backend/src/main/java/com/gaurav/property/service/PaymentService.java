@@ -209,6 +209,79 @@ public class PaymentService {
         }
     }
 
+    @Transactional
+    public void handleRazorpayWebhook(String payload, String signature) {
+        if (signature == null || signature.isBlank()) {
+            throw new RuntimeException("Missing Razorpay webhook signature.");
+        }
+
+        String webhookSecret = System.getenv("RAZORPAY_WEBHOOK_SECRET");
+        if (webhookSecret == null || webhookSecret.isBlank()) {
+            throw new RuntimeException("Razorpay webhook verification is not configured.");
+        }
+
+        try {
+            if (!Utils.verifyWebhookSignature(payload, signature, webhookSecret)) {
+                throw new RuntimeException("Invalid Razorpay webhook signature.");
+            }
+
+            JSONObject body = new JSONObject(payload);
+            String event = body.optString("event");
+
+            JSONObject entity = null;
+            if (event.startsWith("payment.") && body.has("payload")) {
+                JSONObject paymentPayload = body.getJSONObject("payload").optJSONObject("payment");
+                entity = paymentPayload == null ? null : paymentPayload.optJSONObject("entity");
+            } else if ("order.paid".equals(event) && body.has("payload")) {
+                JSONObject orderPayload = body.getJSONObject("payload").optJSONObject("order");
+                entity = orderPayload == null ? null : orderPayload.optJSONObject("entity");
+            }
+
+            if (entity == null) {
+                return;
+            }
+
+            String orderId = entity.optString("order_id");
+            if (orderId.isBlank()) {
+                orderId = entity.optString("id");
+            }
+
+            Payment payment = paymentRepository.findByGatewayOrderId(orderId).orElse(null);
+            if (payment == null || payment.getPaymentStatus() == PaymentStatus.SUCCESS) {
+                return;
+            }
+
+            long amount = entity.optLong("amount", entity.optLong("amount_paid", 0));
+            if (amount != 50000L) {
+                auditService.record("RAZORPAY_WEBHOOK_REJECTED", "PAYMENT", payment.getId(),
+                        null, "Webhook amount did not match the application fee");
+                return;
+            }
+
+            String paymentStatus = entity.optString("status");
+            if (!"captured".equalsIgnoreCase(paymentStatus) && !"order.paid".equalsIgnoreCase(event)) {
+                return;
+            }
+
+            payment.setPaymentStatus(PaymentStatus.SUCCESS);
+            payment.setSignatureVerified(true);
+            payment.setGatewayPaymentId(entity.optString("id", null));
+            payment.setPaymentDate(LocalDateTime.now());
+
+            RegistrationApplication application = payment.getApplication();
+            application.setStatus(ApplicationStatus.PAID);
+            applicationRepository.save(application);
+            paymentRepository.save(payment);
+
+            auditService.record("RAZORPAY_WEBHOOK_CONFIRMED", "PAYMENT", payment.getId(),
+                    null, "Razorpay webhook confirmed captured payment");
+            auditService.record("PAYMENT_COMPLETED", "APPLICATION", application.getId(),
+                    null, "Payment completion confirmed by Razorpay webhook");
+        } catch (RazorpayException ex) {
+            throw new RuntimeException("Unable to verify Razorpay webhook signature.");
+        }
+    }
+
     private void requireRazorpayConfiguration() {
         if (razorpayKeyId == null || razorpayKeyId.isBlank()
                 || razorpayKeySecret == null || razorpayKeySecret.isBlank()) {
