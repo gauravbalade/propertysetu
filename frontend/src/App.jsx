@@ -1091,11 +1091,6 @@ function App() {
       showValidation(["Enter the email address associated with your account."]);
       return;
     }
-    if (!MSG91_WIDGET_ID || !MSG91_WIDGET_TOKEN) {
-      setError("MSG91 OTP is not configured on the frontend yet. Please try again later.");
-      return;
-    }
-
     setBusy(true);
     try {
       await request("/api/auth/forgot-password", {
@@ -1108,10 +1103,22 @@ function App() {
       setResetCode("");
       setNewPassword("");
 
-      const data = await sendMsg91Otp("EMAIL", email);
-      const reqId = extractMsg91Value(data, ["reqId", "reqID", "requestId", "requestID"]);
+      let reqId = "";
+      if (!MSG91_WIDGET_ID || !MSG91_WIDGET_TOKEN) {
+        const data = await request("/api/auth/demo-otp/send", {
+          method: "POST",
+          body: JSON.stringify({ username: email, channel: "RESET" })
+        });
+        setDemoOtpCodes(previous => ({ ...previous, RESET: data.code || "" }));
+        reqId = "DEMO";
+      } else {
+        const data = await sendMsg91Otp("EMAIL", email);
+        reqId = extractMsg91Value(data, ["reqId", "reqID", "requestId", "requestID"]);
+      }
       setResetReqId(reqId);
-      setMessage("If an account matches that email, a password-reset OTP has been sent.");
+      setMessage(MSG91_WIDGET_ID && MSG91_WIDGET_TOKEN
+        ? "If an account matches that email, a password-reset OTP has been sent."
+        : "Academic fallback mode: a demo reset OTP has been generated and is shown below.");
       setStep("resetPassword");
     } catch (err) {
       setError(err.message);
@@ -1134,6 +1141,25 @@ function App() {
     }
 
     setBusy(true);
+
+    if (!MSG91_WIDGET_ID || !MSG91_WIDGET_TOKEN) {
+      request("/api/auth/demo-otp/verify", {
+        method: "POST",
+        body: JSON.stringify({
+          username: forgotEmail.trim().toLowerCase(),
+          channel: "RESET",
+          code: resetCode.trim()
+        })
+      })
+        .then(() => {
+          setResetAccessToken("DEMO");
+          setMessage("Demo reset OTP verified. Choose your new password.");
+        })
+        .catch(err => setError(err.message))
+        .finally(() => setBusy(false));
+      return;
+    }
+
     try {
       initMsg91Widget(forgotEmail.trim().toLowerCase());
       window.verifyOtp(
@@ -1172,6 +1198,24 @@ function App() {
     if (busy) return;
     clearMessages();
     setBusy(true);
+
+    if (!MSG91_WIDGET_ID || !MSG91_WIDGET_TOKEN) {
+      request("/api/auth/demo-otp/send", {
+        method: "POST",
+        body: JSON.stringify({ username: forgotEmail.trim().toLowerCase(), channel: "RESET" })
+      })
+        .then(data => {
+          setDemoOtpCodes(previous => ({ ...previous, RESET: data.code || "" }));
+          setResetReqId("DEMO");
+          setResetAccessToken("");
+          setResetCode("");
+          setMessage("A new demo password-reset OTP has been generated.");
+        })
+        .catch(err => setError(err.message))
+        .finally(() => setBusy(false));
+      return;
+    }
+
     sendMsg91Otp("EMAIL", forgotEmail.trim().toLowerCase())
       .then(data => {
         const nextReqId = extractMsg91Value(data, ["reqId", "reqID", "requestId", "requestID"]);
@@ -1200,14 +1244,25 @@ function App() {
 
     setBusy(true);
     try {
-      await request("/api/auth/reset-password", {
-        method: "POST",
-        body: JSON.stringify({
-          email: forgotEmail.trim().toLowerCase(),
-          accessToken: resetAccessToken,
-          newPassword
-        })
-      });
+      if (!MSG91_WIDGET_ID || !MSG91_WIDGET_TOKEN) {
+        await request("/api/auth/demo-otp/reset-password?newPassword=" + encodeURIComponent(newPassword), {
+          method: "POST",
+          body: JSON.stringify({
+            username: forgotEmail.trim().toLowerCase(),
+            channel: "RESET",
+            code: resetCode.trim()
+          })
+        });
+      } else {
+        await request("/api/auth/reset-password", {
+          method: "POST",
+          body: JSON.stringify({
+            email: forgotEmail.trim().toLowerCase(),
+            accessToken: resetAccessToken,
+            newPassword
+          })
+        });
+      }
       setLoginForm({ username: "", password: "" });
       setForgotEmail("");
       setResetCode("");
