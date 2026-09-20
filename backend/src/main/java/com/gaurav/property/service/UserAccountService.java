@@ -24,18 +24,21 @@ public class UserAccountService {
     private final JwtService jwtService;
     private final Msg91WidgetService msg91WidgetService;
     private final AuditService auditService;
+    private final DemoOtpService demoOtpService;
 
     public UserAccountService(
             UserAccountRepository userAccountRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             Msg91WidgetService msg91WidgetService,
-            AuditService auditService) {
+            AuditService auditService,
+            DemoOtpService demoOtpService) {
         this.userAccountRepository = userAccountRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.msg91WidgetService = msg91WidgetService;
         this.auditService = auditService;
+        this.demoOtpService = demoOtpService;
     }
 
     @Transactional
@@ -114,6 +117,81 @@ public class UserAccountService {
         }
 
         return toResponse(user, jwtService.generateToken(user), false);
+    }
+
+    public com.gaurav.property.dto.DemoOtpResponse sendDemoOtp(String username, String channel) {
+        UserAccount user = userAccountRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Account not found"));
+
+        String normalizedChannel = channel == null ? "" : channel.trim().toUpperCase();
+        if ("RESET".equals(normalizedChannel)) {
+            if (!user.getEmail().equalsIgnoreCase(user.getEmail())) {
+                throw new RuntimeException("Password reset request is invalid");
+            }
+        } else if (!"EMAIL".equals(normalizedChannel) && !"PHONE".equals(normalizedChannel)) {
+            throw new RuntimeException("Verification channel must be EMAIL or PHONE.");
+        }
+
+        if ("EMAIL".equals(normalizedChannel) && Boolean.TRUE.equals(user.getEmailVerified())) {
+            throw new RuntimeException("Email is already verified.");
+        }
+        if ("PHONE".equals(normalizedChannel) && Boolean.TRUE.equals(user.getPhoneVerified())) {
+            throw new RuntimeException("Mobile number is already verified.");
+        }
+
+        String code = demoOtpService.issue(user.getUsername(), normalizedChannel);
+        return new com.gaurav.property.dto.DemoOtpResponse(normalizedChannel, code, 600);
+    }
+
+    @Transactional
+    public UserResponse verifyDemoOtp(com.gaurav.property.dto.DemoOtpRequest request) {
+        UserAccount user = userAccountRepository.findByUsername(request.getUsername())
+                .orElseThrow(() -> new RuntimeException("Account not found"));
+
+        String channel = request.getChannel().trim().toUpperCase();
+        if (!"EMAIL".equals(channel) && !"PHONE".equals(channel)) {
+            throw new RuntimeException("Verification channel must be EMAIL or PHONE.");
+        }
+
+        if (!demoOtpService.verify(user.getUsername(), channel, request.getCode())) {
+            throw new RuntimeException("Incorrect or expired demo OTP. Request a new code and try again.");
+        }
+
+        if ("EMAIL".equals(channel)) {
+            user.setEmailVerified(true);
+        } else {
+            user.setPhoneVerified(true);
+        }
+
+        if (isFullyVerified(user)) {
+            user.setActive(true);
+        }
+
+        UserAccount saved = userAccountRepository.save(user);
+        auditService.record("ACCOUNT_VERIFIED_" + channel, "USER", saved.getId(), saved,
+                channel + " OTP verified in academic fallback mode");
+
+        return toResponse(saved, null, !isFullyVerified(saved));
+    }
+
+    @Transactional
+    public void resetPasswordWithDemoOtp(com.gaurav.property.dto.DemoOtpRequest request, String newPassword) {
+        UserAccount user = userAccountRepository.findByUsername(request.getUsername())
+                .orElseThrow(() -> new RuntimeException("Account not found"));
+
+        if (!"RESET".equalsIgnoreCase(request.getChannel())) {
+            throw new RuntimeException("Password reset OTP channel must be RESET.");
+        }
+
+        if (!demoOtpService.verify(user.getUsername(), "RESET", request.getCode())) {
+            throw new RuntimeException("Incorrect or expired demo reset OTP. Request a new code and try again.");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setPasswordResetVerificationSid(null);
+        userAccountRepository.save(user);
+        auditService.record("PASSWORD_RESET_COMPLETED", "USER", user.getId(), user,
+                "Password reset completed in academic fallback mode");
     }
 
     @Transactional
