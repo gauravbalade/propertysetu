@@ -40,6 +40,15 @@ public class PaymentController {
                 .body(paymentService.createPaymentOrder(request));
     }
 
+    @PostMapping("/webhook/razorpay")
+    public ResponseEntity<Void> razorpayWebhook(
+            @org.springframework.web.bind.annotation.RequestHeader(value = "X-Razorpay-Signature", required = false) String signature,
+            @RequestBody String payload) {
+
+        paymentService.handleRazorpayWebhook(payload, signature);
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/verify")
     public ResponseEntity<PaymentResponse> verifyPayment(
             @Valid @RequestBody PaymentVerificationRequest request) {
