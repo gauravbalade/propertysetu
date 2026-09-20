@@ -46,4 +46,83 @@ public class AuditEvent {
 
     @Column(nullable = false)
     private LocalDateTime occurredAt;
+
+    public AuditEvent(Long id, String action, String entityType, String entityId, String actorUsername, String actorRole, String details, LocalDateTime occurredAt) {
+        this.id = id;
+        this.action = action;
+        this.entityType = entityType;
+        this.entityId = entityId;
+        this.actorUsername = actorUsername;
+        this.actorRole = actorRole;
+        this.details = details;
+        this.occurredAt = occurredAt;
+    }
+
+    public AuditEvent() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getAction() {
+        return this.action;
+    }
+
+    public void setAction(String action) {
+        this.action = action;
+    }
+
+    public String getEntityType() {
+        return this.entityType;
+    }
+
+    public void setEntityType(String entityType) {
+        this.entityType = entityType;
+    }
+
+    public String getEntityId() {
+        return this.entityId;
+    }
+
+    public void setEntityId(String entityId) {
+        this.entityId = entityId;
+    }
+
+    public String getActorUsername() {
+        return this.actorUsername;
+    }
+
+    public void setActorUsername(String actorUsername) {
+        this.actorUsername = actorUsername;
+    }
+
+    public String getActorRole() {
+        return this.actorRole;
+    }
+
+    public void setActorRole(String actorRole) {
+        this.actorRole = actorRole;
+    }
+
+    public String getDetails() {
+        return this.details;
+    }
+
+    public void setDetails(String details) {
+        this.details = details;
+    }
+
+    public LocalDateTime getOccurredAt() {
+        return this.occurredAt;
+    }
+
+    public void setOccurredAt(LocalDateTime occurredAt) {
+        this.occurredAt = occurredAt;
+    }
+
 }
