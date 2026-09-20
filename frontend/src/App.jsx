@@ -192,7 +192,6 @@ function App() {
 
     let response;
 
-    let lastNetworkError = null;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         response = await fetch(API + url, {
@@ -202,10 +201,8 @@ function App() {
             ...options.headers
           }
         });
-        lastNetworkError = null;
         break;
       } catch (error) {
-        lastNetworkError = error;
         if (attempt < 2) {
           await new Promise(resolve => setTimeout(resolve, 2500 * (attempt + 1)));
         }
