@@ -44,4 +44,74 @@ public class Location {
 
     @Column(nullable = false, length = 10)
     private String pincode;
+
+    public Location(Long id, Property property, String address, String city, String district, String state, String pincode) {
+        this.id = id;
+        this.property = property;
+        this.address = address;
+        this.city = city;
+        this.district = district;
+        this.state = state;
+        this.pincode = pincode;
+    }
+
+    public Location() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Property getProperty() {
+        return this.property;
+    }
+
+    public void setProperty(Property property) {
+        this.property = property;
+    }
+
+    public String getAddress() {
+        return this.address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getCity() {
+        return this.city;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
+    }
+
+    public String getDistrict() {
+        return this.district;
+    }
+
+    public void setDistrict(String district) {
+        this.district = district;
+    }
+
+    public String getState() {
+        return this.state;
+    }
+
+    public void setState(String state) {
+        this.state = state;
+    }
+
+    public String getPincode() {
+        return this.pincode;
+    }
+
+    public void setPincode(String pincode) {
+        this.pincode = pincode;
+    }
+
 }
