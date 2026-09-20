@@ -1143,6 +1143,12 @@ function App() {
             <div className="password-field"><input id="login-password" name="password" autoComplete="current-password" type={loginPasswordVisible ? "text" : "password"} placeholder="" value={loginForm.password} onChange={e => update(setLoginForm, "password", e.target.value)} required /><button type="button" className="password-toggle" onClick={() => setLoginPasswordVisible(previous => !previous)}>{loginPasswordVisible ? "Hide" : "Show"}</button></div>
             <small className="field-example">Enter the password you created for your account.</small>
             <button type="submit" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
+            <button type="button" className="link-button auth-forgot" onClick={() => {
+              clearMessages();
+              setForgotEmail("");
+              setStep("forgotPassword");
+            }}>Forgot password?</button>
+
           </form>
           <div className="auth-trust-row"><span>🔒 JWT-protected session</span><span>👤 Multi-user access</span><span>✓ Role-based workspace</span></div>
           <div className="auth-divider">New applicant?</div>
@@ -1157,6 +1163,142 @@ function App() {
         </section>
 
         <div className="public-footer"><span>PropertySetu · Academic demonstration</span><span>Do not use real identity documents in the demo.</span></div>
+      </main>
+    );
+  }
+
+  if (step === "verify" && !officerMode) {
+    return (
+      <main className="app auth-page">
+        <header className="site-nav">
+          <button className="brand-button" type="button" onClick={() => setStep("home")} aria-label="PropertySetu home">
+            <span className="brand-mark">P</span><span><b>PropertySetu</b><small>Academic project</small></span>
+          </button>
+        </header>
+
+        <section className="login-intro">
+          <div>
+            <p className="eyebrow">ACCOUNT VERIFICATION</p>
+            <h1>Verify your email and mobile number.</h1>
+            <p>Two independent OTP checks help confirm that the contact details belong to the person creating the account.</p>
+          </div>
+          <div className="mini-notice"><strong>Security checkpoint</strong><span>Both channels must be verified before password login is enabled.</span></div>
+        </section>
+
+        {message && <div className="message success" role="status">{message}</div>}
+        {validationErrors.length > 0 && <div className="validation-summary" role="alert"><strong>There is a problem</strong><ul>{validationErrors.map((item, index) => <li key={index}>{item}</li>)}</ul></div>}
+        {error && <div className="message error" role="alert">{error}</div>}
+
+        <section className="card verification-card">
+          <div className="verification-identity">
+            <span className="step-icon">✓</span>
+            <div><p className="eyebrow">ACCOUNT</p><h2>{verificationUsername}</h2><p className="muted">Enter each code exactly as received. Codes expire according to the verification provider.</p></div>
+          </div>
+
+          <div className="verification-grid">
+            {[
+              ["EMAIL", "Email verification", "We sent a code to your registered email address."],
+              ["PHONE", "Mobile verification", "We sent a code to your registered mobile number."]
+            ].map(([channel, title, description]) => (
+              <article className={verificationState[channel] ? "otp-card verified" : "otp-card"} key={channel}>
+                <div className="otp-card-heading">
+                  <span>{verificationState[channel] ? "✓" : channel === "EMAIL" ? "@" : "⌕"}</span>
+                  <div><b>{title}</b><small>{verificationState[channel] ? "Verified" : description}</small></div>
+                </div>
+                {!verificationState[channel] && (
+                  <>
+                    <label htmlFor={`otp-${channel.toLowerCase()}`}>One-time password</label>
+                    <input
+                      id={`otp-${channel.toLowerCase()}`}
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={10}
+                      value={verificationCodes[channel]}
+                      onChange={event => setVerificationCodes(previous => ({ ...previous, [channel]: event.target.value.replace(/\D/g, "") }))}
+                      placeholder="Enter OTP"
+                    />
+                    <div className="otp-actions">
+                      <button type="button" onClick={() => verifyOtp(channel)} disabled={busy}>Verify {channel === "EMAIL" ? "email" : "mobile"}</button>
+                      <button type="button" className="secondary-button" onClick={() => resendOtp(channel)} disabled={busy}>Resend code</button>
+                    </div>
+                  </>
+                )}
+              </article>
+            ))}
+          </div>
+
+          <div className="verification-rule">
+            <span>01</span><b>Email verified</b><i>+</i><span>02</span><b>Mobile verified</b><i>→</i><strong>Login enabled</strong>
+          </div>
+
+          <button type="button" className="secondary-button full-width" onClick={() => { clearMessages(); setStep("login"); }} disabled={busy}>Back to sign in</button>
+        </section>
+
+        <div className="public-footer"><span>PropertySetu · Academic demonstration</span><span>Contact verification protects account access.</span></div>
+      </main>
+    );
+  }
+
+  if (step === "forgotPassword" && !officerMode) {
+    return (
+      <main className="app auth-page">
+        <header className="site-nav">
+          <button className="brand-button" type="button" onClick={() => setStep("home")} aria-label="PropertySetu home">
+            <span className="brand-mark">P</span><span><b>PropertySetu</b><small>Academic project</small></span>
+          </button>
+          <button className="nav-link" type="button" onClick={() => { clearMessages(); setStep("login"); }}>← Back to sign in</button>
+        </header>
+
+        <section className="login-intro">
+          <div><p className="eyebrow">ACCOUNT RECOVERY</p><h1>Reset your password securely.</h1><p>We will send a one-time code to the email address on the account.</p></div>
+          <div className="mini-notice"><strong>Privacy-aware recovery</strong><span>The response does not reveal whether an email is registered.</span></div>
+        </section>
+
+        {message && <div className="message success" role="status">{message}</div>}
+        {validationErrors.length > 0 && <div className="validation-summary" role="alert"><strong>There is a problem</strong><ul>{validationErrors.map((item, index) => <li key={index}>{item}</li>)}</ul></div>}
+        {error && <div className="message error" role="alert">{error}</div>}
+
+        <section className="card auth-card">
+          <form onSubmit={requestPasswordReset}>
+            <div className="form-section-heading"><span className="step-icon">01</span><div><h2>Find your account</h2><p className="muted">Enter the email you used during registration.</p></div></div>
+            <label htmlFor="forgot-email">Email address <span>*</span></label>
+            <input id="forgot-email" type="email" autoComplete="email" value={forgotEmail} onChange={event => setForgotEmail(event.target.value)} required />
+            <small className="field-example">Example: rahul.sharma@example.com</small>
+            <button type="submit" disabled={busy}>{busy ? "Sending verification…" : "Send reset OTP"}</button>
+          </form>
+        </section>
+      </main>
+    );
+  }
+
+  if (step === "resetPassword" && !officerMode) {
+    return (
+      <main className="app auth-page">
+        <header className="site-nav">
+          <button className="brand-button" type="button" onClick={() => setStep("home")} aria-label="PropertySetu home">
+            <span className="brand-mark">P</span><span><b>PropertySetu</b><small>Academic project</small></span>
+          </button>
+        </header>
+
+        <section className="login-intro">
+          <div><p className="eyebrow">PASSWORD RECOVERY</p><h1>Enter the reset code.</h1><p>Use the OTP sent to your email, then choose a new password.</p></div>
+        </section>
+
+        {message && <div className="message success" role="status">{message}</div>}
+        {validationErrors.length > 0 && <div className="validation-summary" role="alert"><strong>There is a problem</strong><ul>{validationErrors.map((item, index) => <li key={index}>{item}</li>)}</ul></div>}
+        {error && <div className="message error" role="alert">{error}</div>}
+
+        <section className="card auth-card">
+          <form onSubmit={resetPassword}>
+            <div className="form-section-heading"><span className="step-icon">02</span><div><h2>Verify and reset</h2><p className="muted">Account: {forgotEmail}</p></div></div>
+            <label htmlFor="reset-code">Email OTP <span>*</span></label>
+            <input id="reset-code" inputMode="numeric" autoComplete="one-time-code" maxLength={10} value={resetCode} onChange={event => setResetCode(event.target.value.replace(/\D/g, ""))} required />
+            <label htmlFor="reset-password">New password <span>*</span></label>
+            <input id="reset-password" type="password" autoComplete="new-password" minLength={6} maxLength={100} value={resetPassword} onChange={event => setResetPassword(event.target.value)} required />
+            <button type="submit" disabled={busy}>{busy ? "Resetting password…" : "Reset password"}</button>
+            <button type="button" className="secondary-button" onClick={() => setStep("forgotPassword")} disabled={busy}>Request another code</button>
+          </form>
+        </section>
       </main>
     );
   }
@@ -1725,20 +1867,27 @@ function App() {
               <p><b>Current status:</b> {application?.status}</p>
               <p><b>Amount:</b> ₹500.00</p>
             </div>
-            {!payment && <button onClick={createPayment} disabled={busy}>{busy ? "Creating payment order…" : "Create payment order"}</button>}
-            {payment && (
-              <>
-                <div className="summary">
-                  <p><b>Order:</b> {payment.gatewayOrderId}</p>
-                  <p><b>Gateway:</b> TEST_MODE</p>
-                  <p><b>Payment status:</b> {payment.paymentStatus}</p>
-                </div>
-                <div className="form-navigation">
-                  <button type="button" className="secondary-button" onClick={goToPreviousStep}>Previous</button>
-                  <button onClick={completePayment} disabled={busy}>{busy ? "Processing…" : "Complete test payment"}</button>
-                </div>
-              </>
+            <div className="payment-gateway-card">
+              <div>
+                <span className="payment-gateway-badge">RAZORPAY · TEST MODE</span>
+                <h3>Secure hosted checkout</h3>
+                <p>Payment details are entered inside Razorpay Checkout. PropertySetu never asks you to type card or UPI credentials into this application.</p>
+              </div>
+              <div className="payment-amount">₹500<span>INR</span></div>
+            </div>
+            {!payment && <button onClick={createPayment} disabled={busy}>{busy ? "Opening Razorpay…" : "Pay ₹500 with Razorpay"}</button>}
+            {payment && payment.paymentStatus !== "SUCCESS" && (
+              <div className="summary">
+                <p><b>Razorpay order:</b> {payment.gatewayOrderId}</p>
+                <p><b>Gateway:</b> {payment.gatewayReference || "RAZORPAY"}</p>
+                <p><b>Payment status:</b> {payment.paymentStatus}</p>
+                <p><b>Next:</b> Complete the Razorpay checkout window. The server will verify the returned signature.</p>
+                <button onClick={createPayment} disabled={busy}>{busy ? "Opening Razorpay…" : "Open Razorpay checkout again"}</button>
+              </div>
             )}
+            <div className="form-navigation">
+              <button type="button" className="secondary-button" onClick={goToPreviousStep}>Previous</button>
+            </div>
           </div>
         )}
 
