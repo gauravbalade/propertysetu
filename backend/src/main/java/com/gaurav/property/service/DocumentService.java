@@ -98,6 +98,15 @@ public class DocumentService {
 
         Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
 
+        Document previous = documentRepository
+                .findFirstByApplicationIdAndDocumentType(applicationId, normalizedType)
+                .orElse(null);
+
+        if (previous != null) {
+            deleteStoredFile(previous.getStoredPath());
+            documentRepository.delete(previous);
+        }
+
         Document document = new Document();
         document.setApplication(application);
         document.setDocumentType(normalizedType);
@@ -200,6 +209,19 @@ public class DocumentService {
         String contentType = Files.probeContentType(storedPath);
         return new DocumentDownload(resource, document.getFileName(),
                 contentType == null ? "application/octet-stream" : contentType);
+    }
+
+    private void deleteStoredFile(String storedPath) throws IOException {
+        if (storedPath == null || storedPath.isBlank()) {
+            return;
+        }
+
+        Path storedPathValue = Paths.get(storedPath).toAbsolutePath().normalize();
+        Path uploadRoot = Paths.get(uploadDirectory).toAbsolutePath().normalize();
+
+        if (storedPathValue.startsWith(uploadRoot) && Files.isRegularFile(storedPathValue)) {
+            Files.deleteIfExists(storedPathValue);
+        }
     }
 
     private String normalizedDocumentType(String type) {
