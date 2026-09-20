@@ -26,6 +26,7 @@ public class ApplicationService {
     private final DocumentService documentService;
     private final AuthorizationService authorizationService;
     private final AuditService auditService;
+    private final NotificationService notificationService;
 
     public ApplicationService(
             RegistrationApplicationRepository applicationRepository,
@@ -33,13 +34,15 @@ public class ApplicationService {
             DocumentRepository documentRepository,
             DocumentService documentService,
             AuthorizationService authorizationService,
-            AuditService auditService) {
+            AuditService auditService,
+            NotificationService notificationService) {
         this.applicationRepository = applicationRepository;
         this.propertyRepository = propertyRepository;
         this.documentRepository = documentRepository;
         this.documentService = documentService;
         this.authorizationService = authorizationService;
         this.auditService = auditService;
+        this.notificationService = notificationService;
     }
 
     public RegistrationApplication createApplication(ApplicationRequest request) {
@@ -178,6 +181,13 @@ public class ApplicationService {
         RegistrationApplication saved = applicationRepository.save(application);
         auditService.record("APPLICATION_SUBMITTED", "APPLICATION", applicationId,
                 authorizationService.currentUser(), "Application submitted for review");
+
+        notificationService.sendApplicationStatus(
+                application.getUserAccount().getEmail(),
+                application.getApplicationNumber(),
+                application.getProperty().getPropertyNumber(),
+                application.getStatus().name(),
+                "The next step is the payment stage. Continue from your PropertySetu workspace.");
         return saved;
     }
 }
