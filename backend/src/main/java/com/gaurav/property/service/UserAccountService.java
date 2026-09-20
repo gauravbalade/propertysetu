@@ -146,12 +146,16 @@ public class UserAccountService {
                 .orElseThrow(() -> new RuntimeException("Account not found"));
 
         String channel = request.getChannel().trim().toUpperCase();
-        if (!"EMAIL".equals(channel) && !"PHONE".equals(channel)) {
-            throw new RuntimeException("Verification channel must be EMAIL or PHONE.");
+        if (!"EMAIL".equals(channel) && !"PHONE".equals(channel) && !"RESET".equals(channel)) {
+            throw new RuntimeException("Verification channel must be EMAIL, PHONE or RESET.");
         }
 
         if (!demoOtpService.verify(user.getUsername(), channel, request.getCode())) {
             throw new RuntimeException("Incorrect or expired demo OTP. Request a new code and try again.");
+        }
+
+        if ("RESET".equals(channel)) {
+            return toResponse(user, null, false);
         }
 
         if ("EMAIL".equals(channel)) {
