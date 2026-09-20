@@ -23,10 +23,10 @@ public class Msg91WidgetService {
     private final ObjectMapper objectMapper;
 
     public Msg91WidgetService(
-            @Value("${MSG91_AUTHKEY:}") String authKey,
-            ObjectMapper objectMapper) {
+            @Value("${MSG91_AUTHKEY:}") String authKey) {
         this.authKey = authKey;
-        this.objectMapper = objectMapper;
+        // Keep MSG91 verification independent of Spring Boot's Jackson bean auto-configuration.
+        this.objectMapper = new ObjectMapper();
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
