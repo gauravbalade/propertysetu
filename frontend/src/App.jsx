@@ -423,14 +423,6 @@ function App() {
 
       await enterApplicantWorkspace(data);
     } catch (err) {
-          // Authentication already succeeded. Keep the user in the workspace and explain that
-          // saved-record hydration can be retried instead of sending them back to login.
-          setError("Your account is signed in, but saved application records could not be loaded yet. Use Refresh status to try again.");
-        } finally {
-          setWorkspaceLoading(false);
-        }
-      })();
-    } catch (err) {
       setError(err.message);
     } finally {
       setBusy(false);
