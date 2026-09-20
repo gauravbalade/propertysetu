@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.gaurav.property.dto.ForgotPasswordRequest;
 import com.gaurav.property.dto.LoginRequest;
+import com.gaurav.property.dto.Msg91VerificationRequest;
 import com.gaurav.property.dto.OtpVerificationRequest;
 import com.gaurav.property.dto.RegisterRequest;
 import com.gaurav.property.dto.ResendOtpRequest;
@@ -46,6 +47,13 @@ public class AuthController {
         UserResponse response = userAccountService.login(request);
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/verify-msg91-token")
+    public ResponseEntity<UserResponse> verifyMsg91Token(
+            @Valid @RequestBody Msg91VerificationRequest request) {
+
+        return ResponseEntity.ok(userAccountService.verifyMsg91Otp(request));
     }
 
     @PostMapping("/verify-otp")
