@@ -331,9 +331,14 @@ function App() {
           setOwnerForm({
             name: existingOwner.name || "",
             address: existingOwner.address || "",
-            phone: existingOwner.phone || "",
+            phone: existingOwner.phone || data.phone || "",
             identityNumber: existingOwner.identityNumber || ""
           });
+        } else {
+          setOwnerForm(previous => ({
+            ...previous,
+            phone: previous.phone || data.phone || ""
+          }));
         }
 
         const current = [...(savedApplications || [])]
@@ -1895,8 +1900,8 @@ function App() {
 
         <section className="card auth-card">
           <form onSubmit={register} aria-busy={busy}>
-            <div className="form-section-heading"><span className="step-icon">01</span><div><h2>Applicant account</h2><p className="muted">Create your sign-in details first. The property workflow comes after successful sign-in.</p></div></div>
-            <div className="decision-note"><b>Before you begin</b><span>Use an email and mobile number you can recognize. Keep real identity documents out of this academic demo.</span></div>
+            <div className="form-section-heading"><span className="step-icon">01</span><div><h2>Applicant account</h2><p className="muted">Create your sign-in details. Your account is saved immediately and you can continue straight to the property workflow.</p></div></div>
+            <div className="decision-note"><b>Before you begin</b><span>Your email and mobile number are saved with your PropertySetu account for contact and recovery. Account creation does not require OTP verification; payment is handled separately in Razorpay Test Mode. Keep real identity documents out of this academic demo.</span></div>
 
             <div className="field-grid two">
               <div className="field">
@@ -1915,7 +1920,7 @@ function App() {
               <div className="field">
                 <label htmlFor="register-phone">Mobile number <span>*</span></label>
                 <input id="register-phone" name="phone" type="tel" inputMode="numeric" autoComplete="tel" maxLength={10} value={registerForm.phone} onChange={e => update(setRegisterForm, "phone", e.target.value.replace(/\D/g, ""))} required />
-                <small className="field-example">Example: 9876543210</small>
+                <small className="field-example">Example: 9876543210 · Saved with your account</small>
               </div>
               <div className="field">
                 <label htmlFor="register-password">Password <span>*</span></label>
