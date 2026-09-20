@@ -176,8 +176,7 @@ public class UserAccountService {
 
     @Transactional
     public void resetPasswordWithDemoOtp(com.gaurav.property.dto.DemoOtpRequest request) {
-        UserAccount user = userAccountRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new RuntimeException("Account not found"));
+        UserAccount user = findUserByIdentifier(request.getUsername());
 
         if (!"RESET".equalsIgnoreCase(request.getChannel())) {
             throw new RuntimeException("Password reset OTP channel must be RESET.");
