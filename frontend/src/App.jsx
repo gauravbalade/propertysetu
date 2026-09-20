@@ -1354,6 +1354,75 @@ function App() {
     }
   }
 
+  async function loadAdminUsers() {
+    setAdminUsersLoading(true);
+    try {
+      const data = await request("/api/admin/users");
+      setAdminUsers(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setAdminUsers([]);
+      setError(err.message);
+    } finally {
+      setAdminUsersLoading(false);
+    }
+  }
+
+  async function createAdminManagedUser(event) {
+    event.preventDefault();
+    if (busy) return;
+    clearMessages();
+
+    const username = adminUserForm.username.trim();
+    const email = adminUserForm.email.trim().toLowerCase();
+    const phone = adminUserForm.phone.trim();
+    const password = adminUserForm.password;
+
+    const errors = [];
+    if (!username) errors.push("Enter a username.");
+    if (!/^\S+@\S+\.\S+$/.test(email)) errors.push("Enter a valid email address.");
+    if (phone && !/^\d{10}$/.test(phone)) errors.push("Mobile number must be 10 digits.");
+    if (password.length < 6 || password.length > 100) errors.push("Temporary password must be 6-100 characters.");
+    if (!["APPLICANT", "OFFICER", "ADMIN"].includes(adminUserForm.role)) errors.push("Select a valid role.");
+
+    if (errors.length) {
+      showValidation(errors);
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await request("/api/admin/users", {
+        method: "POST",
+        body: JSON.stringify({ username, email, phone, password, role: adminUserForm.role })
+      });
+      setAdminUserForm({ username: "", email: "", phone: "", password: "", role: "OFFICER" });
+      await loadAdminUsers();
+      setMessage("User account created successfully.");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updateAdminManagedUser(id, changes) {
+    if (busy) return;
+    clearMessages();
+    setBusy(true);
+    try {
+      const updated = await request("/api/admin/users/" + id, {
+        method: "PUT",
+        body: JSON.stringify(changes)
+      });
+      setAdminUsers(previous => previous.map(account => account.id === updated.id ? updated : account));
+      setMessage("User access settings updated successfully.");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function openOfficerDashboard() {
     clearMessages();
     try {
