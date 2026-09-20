@@ -877,7 +877,12 @@ function App() {
     return new Promise((resolve, reject) => {
       try {
         const identifier = explicitIdentifier
-          ? (channel === "EMAIL" ? explicitIdentifier.trim().toLowerCase() : explicitIdentifier.replace(/\D/g, "").replace(/^91/, "91"))
+          ? (channel === "EMAIL"
+              ? explicitIdentifier.trim().toLowerCase()
+              : (() => {
+                  const digits = explicitIdentifier.replace(/\D/g, "");
+                  return digits.length === 10 ? `91${digits}` : digits;
+                })())
           : msg91Identifier(channel);
 
         initMsg91Widget(identifier);
