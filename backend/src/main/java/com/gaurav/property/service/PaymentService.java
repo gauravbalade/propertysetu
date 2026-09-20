@@ -18,7 +18,6 @@ import com.gaurav.property.enums.ApplicationStatus;
 import com.gaurav.property.enums.PaymentStatus;
 import com.gaurav.property.repository.PaymentRepository;
 import com.gaurav.property.repository.RegistrationApplicationRepository;
-import com.razorpay.Payment as RazorpayPayment;
 import com.razorpay.RazorpayClient;
 import com.razorpay.RazorpayException;
 import com.razorpay.Utils;
