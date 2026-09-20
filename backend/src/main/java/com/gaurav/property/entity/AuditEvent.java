@@ -47,19 +47,7 @@ public class AuditEvent {
     @Column(nullable = false)
     private LocalDateTime occurredAt;
 
-    public AuditEvent(Long id, String action, String entityType, String entityId, String actorUsername, String actorRole, String details, LocalDateTime occurredAt) {
-        this.id = id;
-        this.action = action;
-        this.entityType = entityType;
-        this.entityId = entityId;
-        this.actorUsername = actorUsername;
-        this.actorRole = actorRole;
-        this.details = details;
-        this.occurredAt = occurredAt;
-    }
 
-    public AuditEvent() {
-    }
 
     public Long getId() {
         return this.id;
