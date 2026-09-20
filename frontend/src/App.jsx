@@ -102,6 +102,8 @@ function App() {
   const [forgotEmail, setForgotEmail] = useState("");
   const [resetCode, setResetCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [resetReqId, setResetReqId] = useState("");
+  const [resetAccessToken, setResetAccessToken] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -439,10 +441,8 @@ function App() {
         throw new Error("MSG91 OTP is not configured on the frontend yet. Please try again later.");
       }
 
-      await Promise.all([
-        sendMsg91Otp("EMAIL", data.email || registerForm.email),
-        sendMsg91Otp("PHONE", data.phone || registerForm.phone)
-      ]);
+      await sendMsg91Otp("EMAIL", data.email || registerForm.email);
+      await sendMsg91Otp("PHONE", data.phone || registerForm.phone);
       setOtpCooldowns({ EMAIL: 30, PHONE: 30 });
       setMessage("Account created. OTPs were sent through MSG91. Verify both your email and mobile number before signing in.");
       setLoginForm({ username: registerForm.username, password: "" });
@@ -1027,8 +1027,13 @@ function App() {
     if (busy) return;
     clearMessages();
 
-    if (!/^\S+@\S+\.\S+$/.test(forgotEmail.trim())) {
+    const email = forgotEmail.trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
       showValidation(["Enter the email address associated with your account."]);
+      return;
+    }
+    if (!MSG91_WIDGET_ID || !MSG91_WIDGET_TOKEN) {
+      setError("MSG91 OTP is not configured on the frontend yet. Please try again later.");
       return;
     }
 
@@ -1036,11 +1041,18 @@ function App() {
     try {
       await request("/api/auth/forgot-password", {
         method: "POST",
-        body: JSON.stringify({ email: forgotEmail.trim() })
+        body: JSON.stringify({ email })
       });
-      setMessage("If an account matches that email, a password-reset OTP has been sent.");
+
+      setResetReqId("");
+      setResetAccessToken("");
       setResetCode("");
       setNewPassword("");
+
+      const data = await sendMsg91Otp("EMAIL", email);
+      const reqId = extractMsg91Value(data, ["reqId", "reqID", "requestId", "requestID"]);
+      setResetReqId(reqId);
+      setMessage("If an account matches that email, a password-reset OTP has been sent.");
       setStep("resetPassword");
     } catch (err) {
       setError(err.message);
@@ -1049,14 +1061,79 @@ function App() {
     }
   }
 
+  function verifyPasswordResetOtp() {
+    if (busy) return;
+    clearMessages();
+
+    if (!/^\d{6}$/.test(resetCode.trim())) {
+      showValidation(["Enter the 6-digit password-reset OTP."]);
+      return;
+    }
+    if (!resetReqId) {
+      showValidation(["This password-reset OTP session is no longer active. Request a new code."]);
+      return;
+    }
+
+    setBusy(true);
+    try {
+      initMsg91Widget(forgotEmail.trim().toLowerCase());
+      window.verifyOtp(
+        resetCode.trim(),
+        data => {
+          const accessToken = extractMsg91Value(data, [
+            "access-token",
+            "accessToken",
+            "access_token",
+            "token",
+            "jwt"
+          ]);
+          if (!accessToken) {
+            setError("MSG91 verified the OTP but did not return a reset verification token.");
+            setBusy(false);
+            return;
+          }
+          setResetAccessToken(accessToken);
+          setResetCode("");
+          setMessage("Email verified. Choose your new password.");
+          setBusy(false);
+        },
+        error => {
+          setError(error?.message || "Incorrect or expired password-reset OTP. Please try again.");
+          setBusy(false);
+        },
+        resetReqId
+      );
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  }
+
+  function resendPasswordResetOtp() {
+    if (busy) return;
+    clearMessages();
+    setBusy(true);
+    sendMsg91Otp("EMAIL", forgotEmail.trim().toLowerCase())
+      .then(data => {
+        const nextReqId = extractMsg91Value(data, ["reqId", "reqID", "requestId", "requestID"]);
+        setResetReqId(nextReqId);
+        setResetAccessToken("");
+        setResetCode("");
+        setMessage("A new password-reset OTP has been sent.");
+      })
+      .catch(err => setError(err.message))
+      .finally(() => setBusy(false));
+  }
+
   async function submitPasswordReset(event) {
     event.preventDefault();
     if (busy) return;
     clearMessages();
 
     const errors = [];
-    if (!/^\d{4,10}$/.test(resetCode.trim())) errors.push("Enter the password-reset OTP.");
+    if (!resetAccessToken) errors.push("Verify the email OTP before choosing a new password.");
     if (newPassword.length < 6) errors.push("New password must be at least 6 characters.");
+    if (newPassword.length > 100) errors.push("New password cannot exceed 100 characters.");
     if (errors.length) {
       showValidation(errors);
       return;
@@ -1067,14 +1144,16 @@ function App() {
       await request("/api/auth/reset-password", {
         method: "POST",
         body: JSON.stringify({
-          email: forgotEmail.trim(),
-          code: resetCode.trim(),
+          email: forgotEmail.trim().toLowerCase(),
+          accessToken: resetAccessToken,
           newPassword
         })
       });
       setLoginForm({ username: "", password: "" });
       setForgotEmail("");
       setResetCode("");
+      setResetReqId("");
+      setResetAccessToken("");
       setNewPassword("");
       setMessage("Password reset successfully. You can now sign in.");
       setStep("login");
@@ -1571,15 +1650,21 @@ function App() {
         {error && <div className="message error" role="alert">{error}</div>}
 
         <section className="card auth-card">
-          <form onSubmit={submitPasswordReset}>
-            <div className="form-section-heading"><span className="step-icon">02</span><div><h2>Verify and reset</h2><p className="muted">Account: {forgotEmail}</p></div></div>
-            <label htmlFor="reset-code">Email OTP <span>*</span></label>
-            <input id="reset-code" inputMode="numeric" autoComplete="one-time-code" maxLength={10} value={resetCode} onChange={event => setResetCode(event.target.value.replace(/\D/g, ""))} required />
-            <label htmlFor="reset-password">New password <span>*</span></label>
-            <input id="reset-password" type="password" autoComplete="new-password" minLength={6} maxLength={100} value={newPassword} onChange={event => setNewPassword(event.target.value)} required />
-            <button type="submit" disabled={busy}>{busy ? "Resetting password…" : "Reset password"}</button>
-            <button type="button" className="secondary-button" onClick={() => setStep("forgotPassword")} disabled={busy}>Request another code</button>
-          </form>
+          <div className="form-section-heading"><span className="step-icon">02</span><div><h2>Verify and reset</h2><p className="muted">Account: {forgotEmail}</p></div></div>
+          {!resetAccessToken ? (
+            <>
+              <label htmlFor="reset-code">Email OTP <span>*</span></label>
+              <input id="reset-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={resetCode} onChange={event => setResetCode(event.target.value.replace(/\D/g, ""))} placeholder="Enter 6-digit OTP" />
+              <button type="button" onClick={verifyPasswordResetOtp} disabled={busy}>{busy ? "Verifying…" : "Verify email OTP"}</button>
+              <button type="button" className="secondary-button" onClick={resendPasswordResetOtp} disabled={busy}>Send another code</button>
+            </>
+          ) : (
+            <div className="decision-note"><b>✓ Email verified</b><span>The verified email has been confirmed by MSG91. Choose a new password to complete recovery.</span></div>
+          )}
+          <label htmlFor="reset-password">New password <span>*</span></label>
+          <input id="reset-password" type="password" autoComplete="new-password" minLength={6} maxLength={100} value={newPassword} onChange={event => setNewPassword(event.target.value)} required />
+          <button type="button" onClick={submitPasswordReset} disabled={busy || !resetAccessToken}>{busy ? "Resetting password…" : "Reset password"}</button>
+          <button type="button" className="secondary-button" onClick={() => { clearMessages(); setResetCode(""); setResetAccessToken(""); setStep("forgotPassword"); }} disabled={busy}>Use another email</button>
         </section>
       </main>
     );
