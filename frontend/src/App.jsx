@@ -92,7 +92,7 @@ function App() {
   const [verificationState, setVerificationState] = useState({ EMAIL: false, PHONE: false });
   const [forgotEmail, setForgotEmail] = useState("");
   const [resetCode, setResetCode] = useState("");
-  const [resetPassword, setResetPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -774,7 +774,7 @@ function App() {
       });
       setMessage("If an account matches that email, a password-reset OTP has been sent.");
       setResetCode("");
-      setResetPassword("");
+      setNewPassword("");
       setStep("resetPassword");
     } catch (err) {
       setError(err.message);
@@ -783,14 +783,14 @@ function App() {
     }
   }
 
-  async function resetPassword(event) {
+  async function submitPasswordReset(event) {
     event.preventDefault();
     if (busy) return;
     clearMessages();
 
     const errors = [];
     if (!/^\d{4,10}$/.test(resetCode.trim())) errors.push("Enter the password-reset OTP.");
-    if (resetPassword.length < 6) errors.push("New password must be at least 6 characters.");
+    if (newPassword.length < 6) errors.push("New password must be at least 6 characters.");
     if (errors.length) {
       showValidation(errors);
       return;
@@ -803,7 +803,7 @@ function App() {
         body: JSON.stringify({
           email: forgotEmail.trim(),
           code: resetCode.trim(),
-          newPassword: resetPassword
+          newPassword
         })
       });
       setLoginForm({ username: "", password: "" });
@@ -1289,12 +1289,12 @@ function App() {
         {error && <div className="message error" role="alert">{error}</div>}
 
         <section className="card auth-card">
-          <form onSubmit={resetPassword}>
+          <form onSubmit={submitPasswordReset}>
             <div className="form-section-heading"><span className="step-icon">02</span><div><h2>Verify and reset</h2><p className="muted">Account: {forgotEmail}</p></div></div>
             <label htmlFor="reset-code">Email OTP <span>*</span></label>
             <input id="reset-code" inputMode="numeric" autoComplete="one-time-code" maxLength={10} value={resetCode} onChange={event => setResetCode(event.target.value.replace(/\D/g, ""))} required />
             <label htmlFor="reset-password">New password <span>*</span></label>
-            <input id="reset-password" type="password" autoComplete="new-password" minLength={6} maxLength={100} value={resetPassword} onChange={event => setResetPassword(event.target.value)} required />
+            <input id="reset-password" type="password" autoComplete="new-password" minLength={6} maxLength={100} value={newPassword} onChange={event => setNewPassword(event.target.value)} required />
             <button type="submit" disabled={busy}>{busy ? "Resetting password…" : "Reset password"}</button>
             <button type="button" className="secondary-button" onClick={() => setStep("forgotPassword")} disabled={busy}>Request another code</button>
           </form>
