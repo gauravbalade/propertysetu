@@ -71,6 +71,13 @@ public class SecurityConfig {
             }
         }
 
+        // Vercel creates multiple deployment aliases. Allow the project's Vercel
+        // origins without having to hard-code every preview URL.
+        configuration.setAllowedOriginPatterns(List.of(
+                "https://*.vercel.app",
+                "http://localhost:[*]",
+                frontendOrigin
+        ));
         configuration.setAllowedOrigins(allowedOrigins);
 
         configuration.setAllowedMethods(List.of(
@@ -168,6 +175,10 @@ public class SecurityConfig {
                             "/api/health",
                             "/error")
                     .permitAll()
+
+                    .requestMatchers(
+                            "/api/admin/**")
+                    .hasRole("ADMIN")
 
                     .requestMatchers(
                             "/api/applications",
