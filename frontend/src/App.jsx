@@ -71,6 +71,7 @@ function App() {
     area: "",
     description: ""
   });
+  const [editingPropertyId, setEditingPropertyId] = useState(null);
 
   const [locationForm, setLocationForm] = useState({
     address: "",
@@ -460,20 +461,30 @@ function App() {
     setBusy(true);
 
     try {
-      const data = await request("/api/properties", {
-        method: "POST",
-        body: JSON.stringify({
-          ownerId: owner.id,
-          propertyNumber: propertyForm.propertyNumber,
-          propertyType: propertyForm.propertyType,
-          area: Number(propertyForm.area),
-          description: propertyForm.description
-        })
-      });
+      const payload = {
+        ownerId: owner.id,
+        propertyNumber: propertyForm.propertyNumber,
+        propertyType: propertyForm.propertyType,
+        area: Number(propertyForm.area),
+        description: propertyForm.description
+      };
+
+      const data = editingPropertyId
+        ? await request(`/api/properties/${editingPropertyId}`, {
+            method: "PUT",
+            body: JSON.stringify(payload)
+          })
+        : await request("/api/properties", {
+            method: "POST",
+            body: JSON.stringify(payload)
+          });
 
       setProperty(data);
-      setProperties(previous => [...previous, data]);
-      setMessage("Property created successfully.");
+      setProperties(previous => editingPropertyId
+        ? previous.map(item => item.id === data.id ? data : item)
+        : [...previous, data]);
+      setEditingPropertyId(null);
+      setMessage(editingPropertyId ? "Property details updated successfully." : "Property created successfully.");
       setStep("location");
     } catch (err) {
       setError(err.message);
@@ -540,14 +551,23 @@ function App() {
     setBusy(true);
 
     try {
-      const data = await request("/api/applications", {
-        method: "POST",
-        body: JSON.stringify({
-          userId: user.id,
-          propertyId: property.id,
-          purpose: finalPurpose
-        })
-      });
+      const data = application?.id
+        ? await request(`/api/applications/${application.id}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              userId: user.id,
+              propertyId: property.id,
+              purpose: finalPurpose
+            })
+          })
+        : await request("/api/applications", {
+            method: "POST",
+            body: JSON.stringify({
+              userId: user.id,
+              propertyId: property.id,
+              purpose: finalPurpose
+            })
+          });
 
       setApplication(data);
       setApplicantApplications(previous => {
@@ -596,6 +616,52 @@ function App() {
     } catch (err) {
       setError(err.message);
     } finally {      setBusy(false);
+    }
+  }
+
+  async function deleteDocument(documentId) {
+    if (busy) return;
+    clearMessages();
+
+    const confirmed = window.confirm("Remove this draft document from the application?");
+    if (!confirmed) return;
+
+    setBusy(true);
+    try {
+      await request(`/api/applications/${application.id}/documents/${documentId}`, {
+        method: "DELETE"
+      });
+      setUploadedDocuments(previous => previous.filter(document => document.id !== documentId));
+      setMessage("Draft document removed.");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteDraftApplication() {
+    if (busy || !application?.id || application.status !== "DRAFT") return;
+    clearMessages();
+
+    const confirmed = window.confirm("Delete this draft application and its uploaded demo documents?");
+    if (!confirmed) return;
+
+    setBusy(true);
+    try {
+      await request(`/api/applications/${application.id}`, { method: "DELETE" });
+      setApplicantApplications(previous => previous.filter(item => item.id !== application.id));
+      setUploadedDocuments([]);
+      setPayment(null);
+      setApplication(null);
+      setPurpose("");
+      setPurposeType("");
+      setMessage("Draft application deleted. Your property record remains saved.");
+      setStep("application");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -1783,7 +1849,25 @@ function App() {
                 <div className="owner-found-meta"><span><small>Name</small><b>{owner.name || "Protected"}</b></span><span><small>Mobile</small><b>{maskValue(owner.phone, 4)}</b></span><span><small>Identity</small><b>{maskValue(owner.identityNumber, 4)}</b></span></div>
               </div>
             </div>}
-            {properties.length > 0 && <div className="saved-record-panel"><div><p className="eyebrow">SAVED PROPERTY RECORDS</p><h2>Continue with a saved property</h2><p className="muted">Choose a property you already saved instead of creating another record.</p></div>{properties.map(item => <button type="button" className="saved-record" key={item.id} onClick={() => { setProperty(item); setMessage(`Using saved property ${item.propertyNumber}.`); setStep("location"); }}><span><b>{item.propertyNumber}</b><small>{item.propertyType} · {item.area} sq. units</small></span><strong>Continue →</strong></button>)}</div>}
+            {properties.length > 0 && <div className="saved-record-panel"><div><p className="eyebrow">SAVED PROPERTY RECORDS</p><h2>Continue with a saved property</h2><p className="muted">Choose a property you already saved instead of creating another record.</p></div>{properties.map(item => (
+                <div className="saved-record" key={item.id}>
+                  <button type="button" className="saved-record-main" onClick={() => { setProperty(item); setMessage(`Using saved property ${item.propertyNumber}.`); setStep("location"); }}>
+                    <span><b>{item.propertyNumber}</b><small>{item.propertyType} · {item.area} sq. units</small></span>
+                    <strong>Continue →</strong>
+                  </button>
+                  <button type="button" className="link-button" onClick={() => {
+                    setEditingPropertyId(item.id);
+                    setPropertyForm({
+                      propertyNumber: item.propertyNumber || "",
+                      propertyType: item.propertyType || "",
+                      area: item.area || "",
+                      description: item.description || ""
+                    });
+                    setProperty(item);
+                    clearMessages();
+                  }}>Edit details</button>
+                </div>
+              ))}</div>}
             {propertyReferenceMatch && <div className="duplicate-awareness-panel" role="status">
               <div className="duplicate-awareness-icon">✓</div>
               <div>
@@ -1794,7 +1878,7 @@ function App() {
               <button type="button" onClick={() => { setProperty(propertyReferenceMatch); setMessage(`Using saved property ${propertyReferenceMatch.propertyNumber}.`); setStep("location"); }}>Use saved record</button>
             </div>}
             <form onSubmit={createProperty}>
-              <div className="form-section-heading"><span className="step-icon">02</span><div><h2>Property details</h2><p className="muted">Add the property information for this application.</p></div></div>
+              <div className="form-section-heading"><span className="step-icon">02</span><div><h2>{editingPropertyId ? "Edit property details" : "Property details"}</h2><p className="muted">{editingPropertyId ? "Update this saved property while its application remains in draft." : "Add the property information for this application."}</p></div></div>
               <div className="field-grid two">
                 <div className="field"><label htmlFor="property-number">Property reference <span>*</span></label><input id="property-number" placeholder="" value={propertyForm.propertyNumber} onChange={e => update(setPropertyForm, "propertyNumber", e.target.value)} required /><small className="field-example">Example: PROP-2026-001</small>{propertyForm.propertyNumber.trim() && !propertyReferenceMatch && <small className="record-check clear">No matching property reference was found in your saved account records.</small>}{propertyReferenceMatch && <small className="record-check match">✓ Matching saved property found — use the existing record above.</small>}</div>
                 <div className="field"><label htmlFor="property-type">Property type <span>*</span></label><select id="property-type" value={propertyForm.propertyType} onChange={e => update(setPropertyForm, "propertyType", e.target.value)} required><option value="">Select property type</option><option value="RESIDENTIAL">Residential</option><option value="COMMERCIAL">Commercial</option><option value="AGRICULTURAL">Agricultural</option></select><small className="field-example">Example: Residential</small></div>
@@ -1803,7 +1887,7 @@ function App() {
                 <div className="field"><label htmlFor="property-area">Area <span>*</span></label><input id="property-area" type="number" min="1" step="0.01" placeholder="" value={propertyForm.area} onChange={e => update(setPropertyForm, "area", e.target.value)} required /><small className="field-example">Example: 1200 sq. ft.</small></div>
                 <div className="field"><label htmlFor="property-description">Description <span>*</span></label><input id="property-description" placeholder="" value={propertyForm.description} onChange={e => update(setPropertyForm, "description", e.target.value)} required /><small className="field-example">Example: 2 BHK residential apartment with parking.</small></div>
               </div>
-              <div className="form-navigation"><button type="button" className="secondary-button" onClick={goToPreviousStep}>Previous</button><button type="submit" disabled={busy}>{busy ? "Saving property…" : "Save & continue"}</button></div>
+              <div className="form-navigation"><button type="button" className="secondary-button" onClick={goToPreviousStep}>Previous</button><button type="submit" disabled={busy}>{busy ? (editingPropertyId ? "Updating property…" : "Saving property…") : (editingPropertyId ? "Update & continue" : "Save & continue")}</button></div>
             </form>
           </>
         )}
@@ -1829,7 +1913,10 @@ function App() {
             <div className="field"><label htmlFor="purpose-type">Application purpose <span>*</span></label><select id="purpose-type" value={purposeType} onChange={e => setPurposeType(e.target.value)} required><option value="">Select a purpose</option><option value="Sale / transfer of property">Sale / transfer of property</option><option value="Gift deed">Gift deed</option><option value="Lease / rent agreement">Lease / rent agreement</option><option value="Mortgage / loan document">Mortgage / loan document</option><option value="Power of attorney">Power of attorney</option><option value="Other registration purpose">Other registration purpose</option></select><small className="field-example">Example: Sale / transfer of property</small></div>
             <div className="field"><label htmlFor="purpose-note">Application note</label><textarea id="purpose-note" placeholder="" value={purpose} onChange={e => setPurpose(e.target.value)} maxLength={500} /><small className="field-example">Example: Application for transfer of a residential property.</small></div>
             <div className="decision-note"><b>Before you continue</b><span>PropertySetu is demonstrating the workflow. Confirm transaction-specific requirements, fees, witnesses and documents with the appropriate official source.</span></div>
-            <div className="form-navigation"><button type="button" className="secondary-button" onClick={goToPreviousStep}>Previous</button><button type="submit" disabled={busy}>{busy ? "Creating application…" : "Create application"}</button></div>
+            <div className="form-navigation"><button type="button" className="secondary-button" onClick={goToPreviousStep}>Previous</button><button type="submit" disabled={busy}>{busy ? (application?.id ? "Saving application…" : "Creating application…") : (application?.id ? "Save application changes" : "Create application")}</button>
+              {application?.id && application.status === "DRAFT" && (
+                <button type="button" className="link-button danger-link" onClick={deleteDraftApplication} disabled={busy}>Delete draft application</button>
+              )}</div>
           </form>
         )}
 
@@ -1857,6 +1944,32 @@ function App() {
             {file && <div className="file-selected">Selected: {file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB</div>}
             <button type="submit" disabled={busy}>{busy ? "Uploading…" : "Upload document for review"}</button>
             <p className="document-progress"><b>{uploadedDocuments.length}/3 required categories complete</b> · You may replace a file by uploading again under the same category.</p>
+            {uploadedDocuments.length > 0 && (
+              <div className="uploaded-document-list">
+                <div className="timeline-heading">
+                  <div>
+                    <h3>Uploaded documents</h3>
+                    <p className="muted">Draft documents can be opened or removed before submission.</p>
+                  </div>
+                  <span>{uploadedDocuments.length} file{uploadedDocuments.length === 1 ? "" : "s"}</span>
+                </div>
+                {uploadedDocuments.map(document => (
+                  <div className="uploaded-document-row" key={document.id}>
+                    <div>
+                      <strong>{document.fileName}</strong>
+                      <small>{document.documentType.replaceAll("_", " ")} · {document.status}</small>
+                    </div>
+                    <div className="document-row-actions">
+                      <button type="button" className="secondary-button" onClick={() => openProtectedDocument(application.id, document.id)}>View</button>
+                      {application.status === "DRAFT" && (
+                        <button type="button" className="link-button danger-link" onClick={() => deleteDocument(document.id)} disabled={busy}>Remove</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="checklist-table">
               {["IDENTITY_PROOF", "ADDRESS_PROOF", "PROPERTY_DOCUMENT"].map(requiredType => {
                 const uploaded = uploadedDocuments.some(document => document.documentType === requiredType);
