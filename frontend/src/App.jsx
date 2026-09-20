@@ -98,6 +98,7 @@ function App() {
   const [verificationCodes, setVerificationCodes] = useState({ EMAIL: "", PHONE: "" });
   const [msg91Ready, setMsg91Ready] = useState(false);
   const [msg91ReqIds, setMsg91ReqIds] = useState({ EMAIL: "", PHONE: "" });
+  const [demoOtpCodes, setDemoOtpCodes] = useState({ EMAIL: "", PHONE: "", RESET: "" });
   const [verificationState, setVerificationState] = useState({ EMAIL: false, PHONE: false });
   const [otpCooldowns, setOtpCooldowns] = useState({ EMAIL: 0, PHONE: 0 });
   const [forgotEmail, setForgotEmail] = useState("");
@@ -437,15 +438,14 @@ function App() {
         PHONE: Boolean(data.phoneVerified)
       });
       setOtpCooldowns({ EMAIL: 0, PHONE: 0 });
-
-      if (!MSG91_WIDGET_ID || !MSG91_WIDGET_TOKEN) {
-        throw new Error("MSG91 OTP is not configured on the frontend yet. Please try again later.");
-      }
+      setDemoOtpCodes({ EMAIL: "", PHONE: "", RESET: "" });
 
       await sendMsg91Otp("EMAIL", data.email || registerForm.email);
       await sendMsg91Otp("PHONE", data.phone || registerForm.phone);
       setOtpCooldowns({ EMAIL: 30, PHONE: 30 });
-      setMessage("Account created. OTPs were sent through MSG91. Verify both your email and mobile number before signing in.");
+      setMessage(MSG91_WIDGET_ID && MSG91_WIDGET_TOKEN
+        ? "Account created. OTPs were sent through MSG91. Verify both your email and mobile number before signing in."
+        : "Account created in academic fallback mode. Use the demo OTPs shown below to verify both contacts.");
       setLoginForm({ username: registerForm.username, password: "" });
       setRegisterForm({ username: "", password: "", email: "", phone: "" });
       setRegisterConfirmPassword("");
@@ -875,6 +875,16 @@ function App() {
   }
 
   function sendMsg91Otp(channel, explicitIdentifier = "") {
+    if (!MSG91_WIDGET_ID || !MSG91_WIDGET_TOKEN) {
+      return request("/api/auth/demo-otp/send", {
+        method: "POST",
+        body: JSON.stringify({ username: verificationUsername || explicitIdentifier, channel })
+      }).then(data => {
+        setDemoOtpCodes(previous => ({ ...previous, [channel]: data.code || "" }));
+        return data;
+      });
+    }
+
     return new Promise((resolve, reject) => {
       try {
         const identifier = explicitIdentifier
@@ -906,6 +916,42 @@ function App() {
   function verifyMsg91Otp(channel) {
     if (busy) return;
     clearMessages();
+
+    if (!MSG91_WIDGET_ID || !MSG91_WIDGET_TOKEN) {
+      const code = verificationCodes[channel].trim();
+      if (!/^\d{6}$/.test(code)) {
+        showValidation(["Enter the 6-digit demo OTP for your " + (channel === "EMAIL" ? "email" : "mobile number") + "."]);
+        return;
+      }
+      setBusy(true);
+      request("/api/auth/demo-otp/verify", {
+        method: "POST",
+        body: JSON.stringify({
+          username: verificationUsername,
+          channel,
+          code
+        })
+      })
+        .then(verified => {
+          const nextState = {
+            EMAIL: Boolean(verified.emailVerified),
+            PHONE: Boolean(verified.phoneVerified)
+          };
+          setVerificationState(nextState);
+          setVerificationCodes(previous => ({ ...previous, [channel]: "" }));
+          setDemoOtpCodes(previous => ({ ...previous, [channel]: "" }));
+          if (nextState.EMAIL && nextState.PHONE) {
+            setOtpCooldowns({ EMAIL: 0, PHONE: 0 });
+            setMessage("Both contacts are verified. You can now sign in.");
+            setStep("login");
+          } else {
+            setMessage((channel === "EMAIL" ? "Email" : "Mobile number") + " verified. Verify the remaining contact method.");
+          }
+        })
+        .catch(err => setError(err.message))
+        .finally(() => setBusy(false));
+      return;
+    }
 
     const code = verificationCodes[channel].trim();
     const reqId = msg91ReqIds[channel];
@@ -984,6 +1030,18 @@ function App() {
   function resendMsg91Otp(channel) {
     if (busy || otpCooldowns[channel] > 0) return;
     clearMessages();
+
+    if (!MSG91_WIDGET_ID || !MSG91_WIDGET_TOKEN) {
+      setBusy(true);
+      sendMsg91Otp(channel)
+        .then(() => {
+          setOtpCooldowns(previous => ({ ...previous, [channel]: 30 }));
+          setMessage("A new demo " + (channel === "EMAIL" ? "email" : "mobile") + " OTP has been generated.");
+        })
+        .catch(err => setError(err.message))
+        .finally(() => setBusy(false));
+      return;
+    }
 
     const reqId = msg91ReqIds[channel];
     if (!reqId) {
