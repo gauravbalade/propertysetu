@@ -33,7 +33,6 @@ public class PaymentService {
     private final AuthorizationService authorizationService;
     private final AuditService auditService;
     private final NotificationService notificationService;
-    private final NotificationService notificationService;
 
     @Value("${RAZORPAY_KEY_ID:}")
     private String razorpayKeyId;
@@ -50,7 +49,6 @@ public class PaymentService {
         this.applicationRepository = applicationRepository;
         this.authorizationService = authorizationService;
         this.auditService = auditService;
-        this.notificationService = notificationService;
         this.notificationService = notificationService;
     }
 
