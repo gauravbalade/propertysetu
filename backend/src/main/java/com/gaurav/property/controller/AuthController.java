@@ -7,8 +7,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gaurav.property.dto.ForgotPasswordRequest;
 import com.gaurav.property.dto.LoginRequest;
+import com.gaurav.property.dto.OtpVerificationRequest;
 import com.gaurav.property.dto.RegisterRequest;
+import com.gaurav.property.dto.ResendOtpRequest;
+import com.gaurav.property.dto.ResetPasswordRequest;
 import com.gaurav.property.dto.UserResponse;
 import com.gaurav.property.service.UserAccountService;
 
@@ -42,5 +46,35 @@ public class AuthController {
         UserResponse response = userAccountService.login(request);
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/verify-otp")
+    public ResponseEntity<UserResponse> verifyOtp(
+            @Valid @RequestBody OtpVerificationRequest request) {
+
+        return ResponseEntity.ok(userAccountService.verifyOtp(request));
+    }
+
+    @PostMapping("/resend-otp")
+    public ResponseEntity<UserResponse> resendOtp(
+            @Valid @RequestBody ResendOtpRequest request) {
+
+        return ResponseEntity.ok(userAccountService.resendOtp(request));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Void> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+
+        userAccountService.requestPasswordReset(request);
+        return ResponseEntity.accepted().build();
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request) {
+
+        userAccountService.resetPassword(request);
+        return ResponseEntity.noContent().build();
     }
 }
