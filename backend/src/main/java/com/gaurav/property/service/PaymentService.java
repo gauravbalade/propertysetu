@@ -162,7 +162,7 @@ public class PaymentService {
         }
 
         if (payment.getPaymentStatus() == PaymentStatus.SUCCESS) {
-            throw new RuntimeException("Payment has already been completed");
+            return toResponse(payment);
         }
 
         if (!payment.getGatewayOrderId().equals(request.getRazorpayOrderId())) {
