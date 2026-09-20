@@ -7,7 +7,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.gaurav.property.dto.ForgotPasswordRequest;
 import com.gaurav.property.dto.LoginRequest;
 import com.gaurav.property.dto.Msg91VerificationRequest;
-import com.gaurav.property.dto.OtpVerificationRequest;
 import com.gaurav.property.dto.RegisterRequest;
 import com.gaurav.property.dto.ResendOtpRequest;
 import com.gaurav.property.dto.ResetPasswordRequest;
