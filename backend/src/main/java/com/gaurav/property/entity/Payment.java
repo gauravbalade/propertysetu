@@ -58,20 +58,7 @@ public class Payment {
     @Column(length = 255)
     private String gatewayReference;
 
-    public Payment(Long id, RegistrationApplication application, String gatewayOrderId, String gatewayPaymentId, BigDecimal amount, LocalDateTime paymentDate, PaymentStatus paymentStatus, Boolean signatureVerified, String gatewayReference) {
-        this.id = id;
-        this.application = application;
-        this.gatewayOrderId = gatewayOrderId;
-        this.gatewayPaymentId = gatewayPaymentId;
-        this.amount = amount;
-        this.paymentDate = paymentDate;
-        this.paymentStatus = paymentStatus;
-        this.signatureVerified = signatureVerified;
-        this.gatewayReference = gatewayReference;
-    }
 
-    public Payment() {
-    }
 
     public Long getId() {
         return this.id;
