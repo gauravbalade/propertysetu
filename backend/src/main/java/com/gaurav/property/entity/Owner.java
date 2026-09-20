@@ -42,17 +42,7 @@ public class Owner {
     @Column(nullable = false, unique = true, length = 30)
     private String identityNumber;
 
-    public Owner(Long id, UserAccount userAccount, String name, String address, String phone, String identityNumber) {
-        this.id = id;
-        this.userAccount = userAccount;
-        this.name = name;
-        this.address = address;
-        this.phone = phone;
-        this.identityNumber = identityNumber;
-    }
 
-    public Owner() {
-    }
 
     public Long getId() {
         return this.id;
