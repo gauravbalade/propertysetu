@@ -57,4 +57,92 @@ public class Payment {
 
     @Column(length = 255)
     private String gatewayReference;
+
+    public Payment(Long id, RegistrationApplication application, String gatewayOrderId, String gatewayPaymentId, BigDecimal amount, LocalDateTime paymentDate, PaymentStatus paymentStatus, Boolean signatureVerified, String gatewayReference) {
+        this.id = id;
+        this.application = application;
+        this.gatewayOrderId = gatewayOrderId;
+        this.gatewayPaymentId = gatewayPaymentId;
+        this.amount = amount;
+        this.paymentDate = paymentDate;
+        this.paymentStatus = paymentStatus;
+        this.signatureVerified = signatureVerified;
+        this.gatewayReference = gatewayReference;
+    }
+
+    public Payment() {
+    }
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public RegistrationApplication getApplication() {
+        return this.application;
+    }
+
+    public void setApplication(RegistrationApplication application) {
+        this.application = application;
+    }
+
+    public String getGatewayOrderId() {
+        return this.gatewayOrderId;
+    }
+
+    public void setGatewayOrderId(String gatewayOrderId) {
+        this.gatewayOrderId = gatewayOrderId;
+    }
+
+    public String getGatewayPaymentId() {
+        return this.gatewayPaymentId;
+    }
+
+    public void setGatewayPaymentId(String gatewayPaymentId) {
+        this.gatewayPaymentId = gatewayPaymentId;
+    }
+
+    public BigDecimal getAmount() {
+        return this.amount;
+    }
+
+    public void setAmount(BigDecimal amount) {
+        this.amount = amount;
+    }
+
+    public LocalDateTime getPaymentDate() {
+        return this.paymentDate;
+    }
+
+    public void setPaymentDate(LocalDateTime paymentDate) {
+        this.paymentDate = paymentDate;
+    }
+
+    public PaymentStatus getPaymentStatus() {
+        return this.paymentStatus;
+    }
+
+    public void setPaymentStatus(PaymentStatus paymentStatus) {
+        this.paymentStatus = paymentStatus;
+    }
+
+    public Boolean getSignatureVerified() {
+        return this.signatureVerified;
+    }
+
+    public void setSignatureVerified(Boolean signatureVerified) {
+        this.signatureVerified = signatureVerified;
+    }
+
+    public String getGatewayReference() {
+        return this.gatewayReference;
+    }
+
+    public void setGatewayReference(String gatewayReference) {
+        this.gatewayReference = gatewayReference;
+    }
+
 }
