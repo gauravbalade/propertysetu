@@ -124,11 +124,9 @@ public class UserAccountService {
                 .orElseThrow(() -> new RuntimeException("Account not found"));
 
         String normalizedChannel = channel == null ? "" : channel.trim().toUpperCase();
-        if ("RESET".equals(normalizedChannel)) {
-            if (!user.getEmail().equalsIgnoreCase(user.getEmail())) {
-                throw new RuntimeException("Password reset request is invalid");
-            }
-        } else if (!"EMAIL".equals(normalizedChannel) && !"PHONE".equals(normalizedChannel)) {
+        if (!"RESET".equals(normalizedChannel)
+                && !"EMAIL".equals(normalizedChannel)
+                && !"PHONE".equals(normalizedChannel)) {
             throw new RuntimeException("Verification channel must be EMAIL or PHONE.");
         }
 
