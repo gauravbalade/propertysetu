@@ -1620,7 +1620,7 @@ function App() {
               <article className={verificationState[channel] ? "otp-card verified" : "otp-card"} key={channel}>
                 <div className="otp-card-heading">
                   <span>{verificationState[channel] ? "✓" : channel === "EMAIL" ? "@" : "⌕"}</span>
-                  <div><b>{title}</b><small>{verificationState[channel] ? "Verified" : description}</small></div>
+                  <div><b>{title}</b><small>{verificationState[channel] ? "Verified" : description}</small>{!verificationState[channel] && demoOtpCodes[channel] && <strong className="demo-otp-code">Academic demo OTP: {demoOtpCodes[channel]}</strong>}</div>
                 </div>
                 {!verificationState[channel] && (
                   <>
