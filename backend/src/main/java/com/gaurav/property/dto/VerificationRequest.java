@@ -23,4 +23,13 @@ public class VerificationRequest {
 
     @NotBlank
     private String remarks;
+    public Long getApplicationId() { return applicationId; }
+    public void setApplicationId(Long applicationId) { this.applicationId = applicationId; }
+    public Long getVerifiedByUserId() { return verifiedByUserId; }
+    public void setVerifiedByUserId(Long verifiedByUserId) { this.verifiedByUserId = verifiedByUserId; }
+    public VerificationStatus getStatus() { return status; }
+    public void setStatus(VerificationStatus status) { this.status = status; }
+    public String getRemarks() { return remarks; }
+    public void setRemarks(String remarks) { this.remarks = remarks; }
+
 }
