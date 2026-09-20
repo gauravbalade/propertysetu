@@ -155,13 +155,16 @@ public class Msg91WidgetService {
 
             JsonNode data = node.get("data");
             if (data != null && !data.isNull()) {
-                if (data.isObject() || data.isArray()) {
-                    return true;
+                JsonNode dataStatus = data.isObject() ? data.get("status") : null;
+                if (dataStatus != null && dataStatus.isTextual()) {
+                    String value = dataStatus.asText().toLowerCase();
+                    return value.equals("success") || value.equals("verified")
+                            || value.equals("true") || value.equals("200");
                 }
             }
         }
 
-        return true;
+        return false;
     }
 
     private JsonNode parseResponse(String body) {
