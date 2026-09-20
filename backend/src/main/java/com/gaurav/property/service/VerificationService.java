@@ -29,19 +29,22 @@ public class VerificationService {
     private final DocumentRepository documentRepository;
     private final AuthorizationService authorizationService;
     private final AuditService auditService;
+    private final NotificationService notificationService;
 
     public VerificationService(
             VerificationRepository verificationRepository,
             RegistrationApplicationRepository applicationRepository,
             DocumentRepository documentRepository,
             AuthorizationService authorizationService,
-            AuditService auditService) {
+            AuditService auditService,
+            NotificationService notificationService) {
 
         this.verificationRepository = verificationRepository;
         this.applicationRepository = applicationRepository;
         this.documentRepository = documentRepository;
         this.authorizationService = authorizationService;
         this.auditService = auditService;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -113,6 +116,19 @@ public class VerificationService {
         Verification saved = verificationRepository.save(verification);
         auditService.record("APPLICATION_VERIFIED", "APPLICATION", application.getId(),
                 officer, "Verification status: " + request.getStatus().name());
+
+        String nextStep = request.getStatus() == VerificationStatus.VERIFIED
+                ? "The application has completed the academic verification workflow."
+                : request.getStatus() == VerificationStatus.REJECTED
+                        ? "Review the officer remarks in your application workspace."
+                        : "Your application remains in the verification workflow.";
+
+        notificationService.sendApplicationStatus(
+                application.getUserAccount().getEmail(),
+                application.getApplicationNumber(),
+                application.getProperty().getPropertyNumber(),
+                application.getStatus().name(),
+                nextStep);
         ApplicationResponse applicationResponse = new ApplicationResponse(
                 application.getId(),
                 application.getApplicationNumber(),
