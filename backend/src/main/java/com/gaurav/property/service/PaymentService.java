@@ -2,8 +2,9 @@ package com.gaurav.property.service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,16 +18,27 @@ import com.gaurav.property.enums.ApplicationStatus;
 import com.gaurav.property.enums.PaymentStatus;
 import com.gaurav.property.repository.PaymentRepository;
 import com.gaurav.property.repository.RegistrationApplicationRepository;
+import com.razorpay.Payment as RazorpayPayment;
+import com.razorpay.RazorpayClient;
+import com.razorpay.RazorpayException;
+import com.razorpay.Utils;
+import com.razorpay.Order;
 
 @Service
 public class PaymentService {
 
-    private static final BigDecimal TEST_PAYMENT_AMOUNT = BigDecimal.valueOf(500);
+    private static final BigDecimal PAYMENT_AMOUNT = BigDecimal.valueOf(500);
 
     private final PaymentRepository paymentRepository;
     private final RegistrationApplicationRepository applicationRepository;
     private final AuthorizationService authorizationService;
     private final AuditService auditService;
+
+    @Value("${RAZORPAY_KEY_ID:}")
+    private String razorpayKeyId;
+
+    @Value("${RAZORPAY_KEY_SECRET:}")
+    private String razorpayKeySecret;
 
     public PaymentService(PaymentRepository paymentRepository,
             RegistrationApplicationRepository applicationRepository,
@@ -54,17 +66,22 @@ public class PaymentService {
                     .map(this::toResponse)
                     .orElseThrow(() -> new RuntimeException("Payment is already completed"));
         }
+
         if (application.getStatus() != ApplicationStatus.SUBMITTED
                 && application.getStatus() != ApplicationStatus.PAYMENT_PENDING) {
             throw new RuntimeException("Payment is available only for submitted applications");
         }
-        if (request.getAmount() == null || request.getAmount().compareTo(TEST_PAYMENT_AMOUNT) != 0) {
-            throw new RuntimeException("Test-mode payment amount must be ₹500.00");
+
+        if (request.getAmount() == null || request.getAmount().compareTo(PAYMENT_AMOUNT) != 0) {
+            throw new RuntimeException("The payment amount is fixed at ₹500.00 for this academic demonstration.");
         }
+
+        requireRazorpayConfiguration();
 
         if (application.getStatus() == ApplicationStatus.PAYMENT_PENDING) {
             Payment pending = paymentRepository.findByApplicationId(application.getId()).stream()
                     .filter(existing -> existing.getPaymentStatus() == PaymentStatus.PENDING)
+                    .filter(existing -> "RAZORPAY".equalsIgnoreCase(existing.getGatewayReference()))
                     .findFirst()
                     .orElse(null);
             if (pending != null) {
@@ -72,22 +89,42 @@ public class PaymentService {
             }
         }
 
-        Payment payment = new Payment();
-        payment.setApplication(application);
-        payment.setGatewayOrderId("TEST_ORDER_" + UUID.randomUUID().toString().substring(0, 10).toUpperCase());
-        // The server owns the demo fee; the client cannot choose a different amount.
-        payment.setAmount(TEST_PAYMENT_AMOUNT);
-        payment.setPaymentDate(LocalDateTime.now());
-        payment.setPaymentStatus(PaymentStatus.PENDING);
-        payment.setSignatureVerified(false);
-        payment.setGatewayReference("TEST_MODE");
+        try {
+            RazorpayClient client = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
 
-        application.setStatus(ApplicationStatus.PAYMENT_PENDING);
-        applicationRepository.save(application);
-        Payment saved = paymentRepository.save(payment);
-        auditService.record("PAYMENT_ORDER_CREATED", "APPLICATION", application.getId(),
-                authorizationService.currentUser(), "Test-mode order " + payment.getGatewayOrderId());
-        return toResponse(saved);
+            JSONObject orderRequest = new JSONObject();
+            orderRequest.put("amount", 50000);
+            orderRequest.put("currency", "INR");
+            orderRequest.put("receipt", application.getApplicationNumber());
+
+            JSONObject notes = new JSONObject();
+            notes.put("application_id", String.valueOf(application.getId()));
+            notes.put("application_number", application.getApplicationNumber());
+            orderRequest.put("notes", notes);
+
+            Order order = client.orders.create(orderRequest);
+            String orderId = order.get("id");
+
+            Payment payment = new Payment();
+            payment.setApplication(application);
+            payment.setGatewayOrderId(orderId);
+            payment.setAmount(PAYMENT_AMOUNT);
+            payment.setPaymentDate(LocalDateTime.now());
+            payment.setPaymentStatus(PaymentStatus.PENDING);
+            payment.setSignatureVerified(false);
+            payment.setGatewayReference("RAZORPAY");
+
+            application.setStatus(ApplicationStatus.PAYMENT_PENDING);
+            applicationRepository.save(application);
+            Payment saved = paymentRepository.save(payment);
+
+            auditService.record("RAZORPAY_ORDER_CREATED", "APPLICATION", application.getId(),
+                    authorizationService.currentUser(), "Razorpay test order " + orderId);
+
+            return toResponse(saved);
+        } catch (RazorpayException ex) {
+            throw new RuntimeException("Razorpay could not create the payment order. Please try again.");
+        }
     }
 
     @Transactional(readOnly = true)
@@ -95,6 +132,7 @@ public class PaymentService {
         RegistrationApplication application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new RuntimeException("Application not found"));
         authorizationService.requireOwner(application.getUserAccount());
+
         return paymentRepository.findByApplicationId(applicationId).stream()
                 .max((left, right) -> {
                     LocalDateTime leftDate = left.getPaymentDate();
@@ -115,34 +153,69 @@ public class PaymentService {
         RegistrationApplication application = payment.getApplication();
         authorizationService.requireOwner(application.getUserAccount());
 
+        if (!"RAZORPAY".equalsIgnoreCase(payment.getGatewayReference())) {
+            throw new RuntimeException("This payment record is not a Razorpay order.");
+        }
+
         if (payment.getPaymentStatus() == PaymentStatus.SUCCESS) {
             throw new RuntimeException("Payment has already been completed");
         }
-        if (!Boolean.TRUE.equals(request.getSuccessful())) {
-            payment.setPaymentStatus(PaymentStatus.FAILED);
-            payment.setSignatureVerified(false);
-            payment.setGatewayPaymentId(request.getPaymentReference());
-            Payment saved = paymentRepository.save(payment);
-            auditService.record("PAYMENT_FAILED", "PAYMENT", payment.getId(),
-                    authorizationService.currentUser(), "Payment marked unsuccessful");
-            return toResponse(saved);
+
+        if (!payment.getGatewayOrderId().equals(request.getRazorpayOrderId())) {
+            throw new RuntimeException("Payment order mismatch.");
         }
 
-        if (request.getPaymentReference() == null || request.getPaymentReference().isBlank()) {
-            throw new RuntimeException("Payment reference is required");
+        requireRazorpayConfiguration();
+
+        try {
+            JSONObject attributes = new JSONObject();
+            attributes.put("razorpay_order_id", payment.getGatewayOrderId());
+            attributes.put("razorpay_payment_id", request.getRazorpayPaymentId());
+            attributes.put("razorpay_signature", request.getRazorpaySignature());
+
+            if (!Utils.verifyPaymentSignature(attributes, razorpayKeySecret)) {
+                throw new RuntimeException("Razorpay payment signature could not be verified.");
+            }
+
+            RazorpayClient client = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
+            com.razorpay.Payment razorpayPayment = client.payments.fetch(request.getRazorpayPaymentId());
+            String status = String.valueOf(razorpayPayment.get("status"));
+            if (!"captured".equalsIgnoreCase(status)) {
+                throw new RuntimeException("Razorpay payment is not captured yet.");
+            }
+
+            Object amountValue = razorpayPayment.get("amount");
+            long capturedAmount = Long.parseLong(String.valueOf(amountValue));
+            if (capturedAmount != 50000L) {
+                throw new RuntimeException("The captured payment amount does not match the application fee.");
+            }
+
+            payment.setPaymentStatus(PaymentStatus.SUCCESS);
+            payment.setSignatureVerified(true);
+            payment.setGatewayPaymentId(request.getRazorpayPaymentId());
+            payment.setPaymentDate(LocalDateTime.now());
+            application.setStatus(ApplicationStatus.PAID);
+
+            applicationRepository.save(application);
+            Payment saved = paymentRepository.save(payment);
+
+            auditService.record("RAZORPAY_PAYMENT_VERIFIED", "PAYMENT", payment.getId(),
+                    authorizationService.currentUser(), "Razorpay signature and captured amount verified");
+            auditService.record("PAYMENT_COMPLETED", "APPLICATION", application.getId(),
+                    authorizationService.currentUser(), "Razorpay test payment completed");
+
+            return toResponse(saved);
+        } catch (RazorpayException ex) {
+            throw new RuntimeException("Unable to confirm the Razorpay payment. Please try again.");
         }
-        payment.setPaymentStatus(PaymentStatus.SUCCESS);
-        payment.setSignatureVerified(true);
-        payment.setGatewayPaymentId(request.getPaymentReference());
-        payment.setPaymentDate(LocalDateTime.now());
-        application.setStatus(ApplicationStatus.PAID);
-        applicationRepository.save(application);
-        Payment saved = paymentRepository.save(payment);
-        auditService.record("PAYMENT_SUCCEEDED", "PAYMENT", payment.getId(),
-                authorizationService.currentUser(), "Test-mode payment reference recorded");
-        auditService.record("PAYMENT_COMPLETED", "APPLICATION", application.getId(),
-                authorizationService.currentUser(), "Test-mode payment completed");
-        return toResponse(saved);
+    }
+
+    private void requireRazorpayConfiguration() {
+        if (razorpayKeyId == null || razorpayKeyId.isBlank()
+                || razorpayKeySecret == null || razorpayKeySecret.isBlank()) {
+            throw new RuntimeException(
+                    "Razorpay test credentials are not configured on the server yet.");
+        }
     }
 
     private PaymentResponse toResponse(Payment payment) {
@@ -159,6 +232,7 @@ public class PaymentService {
                 application.getApplicationDate(),
                 application.getStatus(),
                 application.getCreatedAt());
+
         return new PaymentResponse(
                 payment.getId(),
                 applicationResponse,
@@ -168,6 +242,8 @@ public class PaymentService {
                 payment.getPaymentDate(),
                 payment.getPaymentStatus(),
                 payment.getSignatureVerified(),
-                payment.getGatewayReference());
+                payment.getGatewayReference(),
+                razorpayKeyId,
+                "INR");
     }
 }
