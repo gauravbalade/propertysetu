@@ -45,18 +45,7 @@ public class Location {
     @Column(nullable = false, length = 10)
     private String pincode;
 
-    public Location(Long id, Property property, String address, String city, String district, String state, String pincode) {
-        this.id = id;
-        this.property = property;
-        this.address = address;
-        this.city = city;
-        this.district = district;
-        this.state = state;
-        this.pincode = pincode;
-    }
 
-    public Location() {
-    }
 
     public Long getId() {
         return this.id;
