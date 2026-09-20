@@ -89,6 +89,8 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [backendStatus, setBackendStatus] = useState("checking");
   const [verificationUsername, setVerificationUsername] = useState("");
+  const [verificationEmail, setVerificationEmail] = useState("");
+  const [verificationPhone, setVerificationPhone] = useState("");
   const [verificationCodes, setVerificationCodes] = useState({ EMAIL: "", PHONE: "" });
   const [verificationState, setVerificationState] = useState({ EMAIL: false, PHONE: false });
   const [otpCooldowns, setOtpCooldowns] = useState({ EMAIL: 0, PHONE: 0 });
@@ -386,11 +388,14 @@ function App() {
       setUser(null);
       sessionStorage.removeItem("property_registration_token");
       setVerificationUsername(data.username || registerForm.username);
+      setVerificationEmail(data.email || registerForm.email);
+      setVerificationPhone(data.phone || registerForm.phone);
       setVerificationCodes({ EMAIL: "", PHONE: "" });
       setVerificationState({
         EMAIL: Boolean(data.emailVerified),
         PHONE: Boolean(data.phoneVerified)
       });
+      setOtpCooldowns({ EMAIL: 30, PHONE: 30 });
       setMessage("Account created. We sent one OTP to your email and one to your mobile number. Verify both before signing in.");
       setLoginForm({ username: registerForm.username, password: "" });
       setRegisterForm({ username: "", password: "", email: "", phone: "" });
@@ -929,6 +934,19 @@ function App() {
     return `${"•".repeat(Math.max(4, text.length - visible))}${text.slice(-visible)}`;
   }
 
+  function maskEmail(value) {
+    const text = String(value || "").trim();
+    const at = text.indexOf("@");
+    if (at <= 1) return "protected email";
+    return text.slice(0, 2) + "•••" + text.slice(at);
+  }
+
+  function maskPhone(value) {
+    const digits = String(value || "").replace(/\D/g, "");
+    if (digits.length < 4) return "protected mobile number";
+    return "••••••" + digits.slice(-4);
+  }
+
   function goToPreviousStep() {
     const previousSteps = {
       property: "owner",
@@ -1132,7 +1150,7 @@ function App() {
               <button type="button" onClick={() => { clearMessages(); setStep("login"); }}>Explore the workflow <span>→</span></button>
               <button type="button" className="secondary-button" onClick={() => setShowAbout(true)}>See how it works</button>
             </div>
-            <div className="trust-strip"><span>✓ JWT authentication</span><span>✓ Role-based access</span><span>✓ Document workflow</span><span>✓ Test-mode payment</span></div>
+            <div className="trust-strip"><span>✓ JWT authentication</span><span>✓ Email + mobile OTP</span><span>✓ Role-based access</span><span>✓ Razorpay test gateway</span><span>✓ Audit history</span></div>
             <div className={`backend-status ${backendStatus}`} role="status" aria-live="polite">
               <span aria-hidden="true">●</span>
               {backendStatus === "online" && "Backend ready"}
@@ -1283,8 +1301,8 @@ function App() {
 
           <div className="verification-grid">
             {[
-              ["EMAIL", "Email verification", "We sent a code to your registered email address."],
-              ["PHONE", "Mobile verification", "We sent a code to your registered mobile number."]
+              ["EMAIL", "Email verification", `We sent a code to ${maskEmail(verificationEmail)}.`],
+              ["PHONE", "Mobile verification", `We sent a code to ${maskPhone(verificationPhone)}.`]
             ].map(([channel, title, description]) => (
               <article className={verificationState[channel] ? "otp-card verified" : "otp-card"} key={channel}>
                 <div className="otp-card-heading">
@@ -1314,7 +1332,10 @@ function App() {
           </div>
 
           <div className="verification-rule">
-            <span>01</span><b>Email verified</b><i>+</i><span>02</span><b>Mobile verified</b><i>→</i><strong>Login enabled</strong>
+            <span>01</span><b className={verificationState.EMAIL ? "verified-text" : ""}>{verificationState.EMAIL ? "✓ Email verified" : "Email verification"}</b>
+            <i>+</i>
+            <span>02</span><b className={verificationState.PHONE ? "verified-text" : ""}>{verificationState.PHONE ? "✓ Mobile verified" : "Mobile verification"}</b>
+            <i>→</i><strong>Login enabled</strong>
           </div>
 
           <button type="button" className="secondary-button full-width" onClick={() => { clearMessages(); setStep("login"); }} disabled={busy}>Back to sign in</button>
