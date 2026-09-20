@@ -1,5 +1,7 @@
 package com.gaurav.property.dto;
 
+import java.time.LocalDateTime;
+
 import com.gaurav.property.enums.UserRole;
 
 import lombok.Getter;
@@ -16,6 +18,8 @@ public class UserResponse {
     private boolean verificationRequired;
     private boolean emailVerified;
     private boolean phoneVerified;
+    private boolean active;
+    private LocalDateTime createdAt;
 
     public UserResponse(Long id, String username, String email, String phone, UserRole role) {
         this(id, username, email, phone, role, null, false, false, false);
@@ -38,5 +42,15 @@ public class UserResponse {
         this.verificationRequired = verificationRequired;
         this.emailVerified = emailVerified;
         this.phoneVerified = phoneVerified;
+    }
+
+    public UserResponse(Long id, String username, String email, String phone,
+            UserRole role, String token, boolean verificationRequired,
+            boolean emailVerified, boolean phoneVerified, boolean active,
+            LocalDateTime createdAt) {
+        this(id, username, email, phone, role, token, verificationRequired,
+                emailVerified, phoneVerified);
+        this.active = active;
+        this.createdAt = createdAt;
     }
 }
