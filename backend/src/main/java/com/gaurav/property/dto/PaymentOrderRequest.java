@@ -18,4 +18,9 @@ public class PaymentOrderRequest {
     @NotNull
     @DecimalMin(value = "1.00")
     private BigDecimal amount;
+    public Long getApplicationId() { return applicationId; }
+    public void setApplicationId(Long applicationId) { this.applicationId = applicationId; }
+    public java.math.BigDecimal getAmount() { return amount; }
+    public void setAmount(java.math.BigDecimal amount) { this.amount = amount; }
+
 }
