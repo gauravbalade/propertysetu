@@ -1769,11 +1769,12 @@ function App() {
             <>
               <label htmlFor="reset-code">Email OTP <span>*</span></label>
               <input id="reset-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={resetCode} onChange={event => setResetCode(event.target.value.replace(/\D/g, ""))} placeholder="Enter 6-digit OTP" />
+              {demoOtpCodes.RESET && <div className="decision-note"><b>Academic demo OTP</b><span>{demoOtpCodes.RESET}</span></div>}
               <button type="button" onClick={verifyPasswordResetOtp} disabled={busy}>{busy ? "Verifying…" : "Verify email OTP"}</button>
               <button type="button" className="secondary-button" onClick={resendPasswordResetOtp} disabled={busy}>Send another code</button>
             </>
           ) : (
-            <div className="decision-note"><b>✓ Email verified</b><span>The verified email has been confirmed by MSG91. Choose a new password to complete recovery.</span></div>
+            <div className="decision-note"><b>✓ Email verified</b><span>{MSG91_WIDGET_ID && MSG91_WIDGET_TOKEN ? "The verified email has been confirmed by MSG91. Choose a new password to complete recovery." : "The demo email OTP has been confirmed. Choose a new password to complete recovery."}</span></div>
           )}
           <label htmlFor="reset-password">New password <span>*</span></label>
           <input id="reset-password" type="password" autoComplete="new-password" minLength={6} maxLength={100} value={newPassword} onChange={event => setNewPassword(event.target.value)} required />
