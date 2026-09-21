@@ -49,6 +49,18 @@ public class PaymentController {
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/reconcile")
+    public ResponseEntity<PaymentResponse> reconcilePayment(
+            @RequestBody java.util.Map<String, Long> request) {
+
+        Long paymentId = request.get("paymentId");
+        if (paymentId == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        return ResponseEntity.ok(paymentService.reconcilePayment(paymentId));
+    }
+
     @PostMapping("/verify")
     public ResponseEntity<PaymentResponse> verifyPayment(
             @Valid @RequestBody PaymentVerificationRequest request) {
