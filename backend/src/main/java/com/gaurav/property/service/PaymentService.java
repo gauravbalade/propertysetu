@@ -2,6 +2,7 @@ package com.gaurav.property.service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
@@ -216,6 +217,69 @@ public class PaymentService {
             return toResponse(saved);
         } catch (RazorpayException ex) {
             throw new RuntimeException("Unable to confirm the Razorpay payment. Please try again.");
+        }
+    }
+
+    @Transactional
+    public PaymentResponse reconcilePayment(Long paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new RuntimeException("Payment not found"));
+        RegistrationApplication application = payment.getApplication();
+        authorizationService.requireOwner(application.getUserAccount());
+
+        if (!"RAZORPAY".equalsIgnoreCase(payment.getGatewayReference())) {
+            throw new RuntimeException("This payment record is not a Razorpay order.");
+        }
+
+        if (payment.getPaymentStatus() == PaymentStatus.SUCCESS) {
+            return toResponse(payment);
+        }
+
+        requireRazorpayConfiguration();
+
+        try {
+            RazorpayClient client = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
+            List<com.razorpay.Payment> payments = client.orders.fetchPayments(payment.getGatewayOrderId());
+
+            for (com.razorpay.Payment razorpayPayment : payments) {
+                String orderId = String.valueOf(razorpayPayment.get("order_id"));
+                String status = String.valueOf(razorpayPayment.get("status"));
+                long amount = Long.parseLong(String.valueOf(razorpayPayment.get("amount")));
+
+                if (payment.getGatewayOrderId().equals(orderId)
+                        && "captured".equalsIgnoreCase(status)
+                        && amount == 50000L) {
+                    payment.setPaymentStatus(PaymentStatus.SUCCESS);
+                    payment.setSignatureVerified(true);
+                    payment.setGatewayPaymentId(String.valueOf(razorpayPayment.get("id")));
+                    payment.setPaymentDate(LocalDateTime.now());
+
+                    application.setStatus(ApplicationStatus.PAID);
+                    applicationRepository.save(application);
+                    Payment saved = paymentRepository.save(payment);
+
+                    auditService.record("RAZORPAY_PAYMENT_RECONCILED", "PAYMENT", payment.getId(),
+                            authorizationService.currentUser(),
+                            "Captured Razorpay payment reconciled from the order");
+
+                    auditService.record("PAYMENT_COMPLETED", "APPLICATION", application.getId(),
+                            authorizationService.currentUser(),
+                            "Payment completion confirmed by Razorpay order reconciliation");
+
+                    notificationService.sendApplicationStatus(
+                            application.getUserAccount().getEmail(),
+                            application.getApplicationNumber(),
+                            application.getProperty().getPropertyNumber(),
+                            application.getStatus().name(),
+                            "Your test-mode Razorpay payment was confirmed and reconciled successfully.");
+
+                    return toResponse(saved);
+                }
+            }
+
+            return toResponse(payment);
+        } catch (RazorpayException ex) {
+            throw new RuntimeException("Unable to reconcile the Razorpay payment. Please try again.");
         }
     }
 
