@@ -826,6 +826,28 @@ function App() {
         notes: {
           application: application.applicationNumber
         },
+        // For this academic demonstration, deliberately expose only UPI in
+        // Razorpay Checkout. This prevents evaluators from being presented
+        // with card/netbanking/wallet fields where real credentials or OTPs
+        // could be entered accidentally.
+        config: {
+          display: {
+            blocks: {
+              propertySetuTest: {
+                name: "UPI Test Payment",
+                instruments: [
+                  {
+                    method: "upi"
+                  }
+                ]
+              }
+            },
+            sequence: ["block.propertySetuTest"],
+            preferences: {
+              show_default_blocks: false
+            }
+          }
+        },
         theme: {
           color: "#172033"
         },
