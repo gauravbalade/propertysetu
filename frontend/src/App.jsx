@@ -398,7 +398,6 @@ function App() {
   async function login(event) {
     event.preventDefault();
     if (busy) return;    clearMessages();
-
     const errors = [];
     if (!loginForm.username.trim()) errors.push("Enter your username.");
     if (!loginForm.password) errors.push("Enter your password.");
@@ -797,8 +796,7 @@ function App() {
       const data = payment && payment.paymentStatus !== "SUCCESS" && payment.gatewayOrderId
         ? payment
         : await request("/api/payments/order", {            method: "POST",
-            body: JSON.stringify({
-              applicationId: application.id,
+            body: JSON.stringify({              applicationId: application.id,
               amount: 500
             })
           });
@@ -1198,7 +1196,6 @@ function App() {
     if (!resetReqId) {      showValidation(["This password-reset OTP session is no longer active. Request a new code."]);
       return;
     }
-
     setBusy(true);
 
     if (!MSG91_WIDGET_ID || !MSG91_WIDGET_TOKEN) {
@@ -1597,8 +1594,7 @@ function App() {
   async function verifySelected(status) {
     if (!selectedApplication) {
       setError("Select an application first.");
-      return;
-    }
+      return;    }
 
     clearMessages();
 
@@ -1997,7 +1993,6 @@ function App() {
       </main>
     );
   }
-
   if (officerMode) {
     return (
       <main className="app">
@@ -2397,8 +2392,7 @@ function App() {
             const currentIndex = applicationProgress() - 1;
             const complete = applicationProgress() === 7 || index < currentIndex;
             return <span key={label} className={complete ? "ready" : index === currentIndex ? "active" : "future"}><i>{complete ? "✓" : index + 1}</i>{label}</span>;
-          })}
-        </div>
+          })}        </div>
       </section>
 
       <section className="companion-card" aria-label="Application guide">
@@ -2611,8 +2605,10 @@ function App() {
             <div className="decision-note payment-test-guide">
               <b>⚠️ TEST MODE ONLY — protect your real payment credentials</b>
               <span>Razorpay Test Mode is a sandbox, but the Checkout screen can still look like a normal payment page. Use only Razorpay's documented sandbox values. Never enter a real card number, CVV, UPI PIN, bank password, banking OTP or any OTP received for a real account. <b>Never use a real card just because the page displays ₹500.</b> If Checkout asks for real financial credentials or a real authentication OTP, stop and close the checkout.</span>
-              <span><strong>Safest demo path:</strong> use Razorpay's Test Mode values only. If <b>UPI</b> is shown, use the documented simulated UPI value. If UPI is not shown, choose <b>Cards</b> and use only the official Razorpay test-card details.</span>
-              <span><strong>OTP safety rule:</strong> never enter a real card, CVV, UPI PIN, bank password or real SMS/bank OTP. A Razorpay Test Mode mock Success/Failure screen is safe to use. If Checkout asks for a real banking OTP or other real financial authentication, <b>stop and close Checkout</b> — do not continue.</span>
+              <span><strong>Safest demo path:</strong> use Razorpay's Test Mode values only. If <b>UPI</b> is shown, use the documented simulated UPI value. If UPI is not shown (as it may be for this checkout), choose <b>Cards</b> and use only the official Razorpay test-card details.</span>
+              <span><strong>Cards test example:</strong> Razorpay's documented domestic Mastercard test number is <code>5267 3181 8797 5449</code>. Use a future expiry and the test flow's allowed random CVV. This is dummy test data — never substitute your own card.</span>
+              <span><strong>OTP safety rule:</strong> <b>never enter a real OTP.</b> A Test Mode mock Success/Failure screen is safe to use. Only enter an OTP if Razorpay's Test Mode itself explicitly provides a documented test value for that mock flow. If Checkout asks for a real banking OTP or other real financial authentication, <b>stop and close Checkout</b> — do not continue.</span>
+              <span><strong>Age & personal-data rule:</strong> this is an academic demonstration. Use synthetic/demo applicant details and synthetic documents. Do not use another person's identity, card or banking credentials. A real property transaction has its own legal eligibility requirements; this website does not perform an official registration.</span>
             </div>
             <label className="acknowledgement payment-safety-check">
               <input
@@ -2629,7 +2625,7 @@ function App() {
                 <p><b>Razorpay order:</b> {payment.gatewayOrderId}</p>
                 <p><b>Gateway:</b> {payment.gatewayReference || "RAZORPAY"}</p>
                 <p><b>Payment status:</b> {payment.paymentStatus}</p>
-                <p><b>Next:</b> Complete the Razorpay Test Mode checkout using only Razorpay's documented sandbox values. If UPI is unavailable, use the Cards test flow. If you close Checkout before a captured test payment, the record remains PENDING; use “Refresh payment status” after a completed test payment instead of creating another order.</p>
+                <p><b>Next:</b> Complete the Razorpay Test Mode checkout using only Razorpay's documented sandbox values. If UPI is unavailable, use the Cards test flow. If you close Checkout before a captured test payment, the record remains <b>PENDING</b>; that is expected. After a completed test payment, use “Refresh payment status” if the success callback did not return, instead of creating another order.</p>
                 <div className="form-navigation">
                   <button type="button" className="secondary-button" onClick={async () => {
                     setBusy(true);
