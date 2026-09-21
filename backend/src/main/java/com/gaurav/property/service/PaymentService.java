@@ -369,6 +369,15 @@ public class PaymentService {
             throw new RuntimeException(
                     "Razorpay test credentials are not configured on the server yet.");
         }
+
+        // PropertySetu is an academic demonstration and must never create a live
+        // payment order. Enforce Razorpay Test Mode at the server boundary so a
+        // production misconfiguration cannot silently turn this workflow into a
+        // real-money payment flow.
+        if (!razorpayKeyId.startsWith("rzp_test_")) {
+            throw new RuntimeException(
+                    "PropertySetu is locked to Razorpay Test Mode. Configure an rzp_test_ key only.");
+        }
     }
 
     private PaymentResponse toResponse(Payment payment) {
