@@ -751,6 +751,30 @@ function App() {
     }
   }
 
+  async function reconcilePaymentStatus(paymentRecord = payment, moveToComplete = true) {
+    if (!paymentRecord?.id) return null;
+
+    try {
+      const reconciled = await request("/api/payments/reconcile", {
+        method: "POST",
+        body: JSON.stringify({ paymentId: paymentRecord.id })
+      });
+
+      setPayment(reconciled);
+      setApplication(reconciled.application);
+
+      if (reconciled.paymentStatus === "SUCCESS") {
+        setMessage("Razorpay test payment confirmed successfully.");
+        if (moveToComplete) setStep("paymentComplete");
+      }
+
+      return reconciled;
+    } catch (err) {
+      if (moveToComplete) setError(err.message);
+      return null;
+    }
+  }
+
   async function createPayment() {
     if (busy) return;
     clearMessages();
@@ -827,9 +851,13 @@ function App() {
           }
         },
         modal: {
-          ondismiss: () => {
+          ondismiss: async () => {
+            setBusy(true);
+            const reconciled = await reconcilePaymentStatus(data, true);
+            if (!reconciled || reconciled.paymentStatus !== "SUCCESS") {
+              setMessage("Payment window closed. If you completed the test payment, use “Refresh payment status” below.");
+            }
             setBusy(false);
-            setMessage("Payment window closed. Your application is still saved and the order can be continued.");
           }
         }
       });
