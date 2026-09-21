@@ -793,13 +793,17 @@ function App() {
     setBusy(true);
 
     try {
-      const data = await request("/api/payments/order", {
-        method: "POST",
-        body: JSON.stringify({
-          applicationId: application.id,
-          amount: 500
-        })
-      });
+      // Reuse an existing pending order so retries do not create multiple
+      // pending Razorpay orders for the same application.
+      const data = payment && payment.paymentStatus !== "SUCCESS" && payment.gatewayOrderId
+        ? payment
+        : await request("/api/payments/order", {
+            method: "POST",
+            body: JSON.stringify({
+              applicationId: application.id,
+              amount: 500
+            })
+          });
 
       setPayment(data);
 
@@ -820,34 +824,15 @@ function App() {
         order_id: data.gatewayOrderId,
         prefill: {
           name: owner?.name || user?.username || "",
-          email: user?.email || "",
-          contact: user?.phone ? `+91${user.phone}` : ""
+          email: user?.email || ""
         },
         notes: {
           application: application.applicationNumber
         },
-        // For this academic demonstration, deliberately expose only UPI in
-        // Razorpay Checkout. This prevents evaluators from being presented
-        // with card/netbanking/wallet fields where real credentials or OTPs
-        // could be entered accidentally.
-        config: {
-          display: {
-            blocks: {
-              propertySetuTest: {
-                name: "UPI Test Payment",
-                instruments: [
-                  {
-                    method: "upi"
-                  }
-                ]
-              }
-            },
-            sequence: ["block.propertySetuTest"],
-            preferences: {
-              show_default_blocks: false
-            }
-          }
-        },
+        // Keep Razorpay's standard Test Mode method selection. Forcing a
+        // custom UPI-only block can return "No appropriate payment method
+        // found" when that method is unavailable for the Test account/session.
+        // The UI below directs the evaluator to Razorpay's UPI simulator.
         theme: {
           color: "#172033"
         },
@@ -2632,7 +2617,7 @@ function App() {
             <div className="decision-note payment-test-guide">
               <b>⚠️ TEST MODE ONLY — protect your real payment credentials</b>
               <span>Razorpay Test Mode is a sandbox. Use only Razorpay's documented test card details or simulated UPI values. Never enter a real card number, CVV, UPI PIN, bank password, banking OTP or any OTP received for a real account. If checkout asks for real financial credentials or a real authentication OTP, stop and close the checkout.</span>
-              <span><strong>Example successful UPI test:</strong> <code>success@razorpay</code>. Test values can change, so use Razorpay's current Test Mode documentation/dashboard for card test data.</span>
+              <span><strong>Recommended demo path:</strong> choose <b>UPI</b> in Razorpay Checkout and enter <code>success@razorpay</code> as the simulated UPI ID. This is a Razorpay Test Mode value; no real UPI PIN or banking OTP is required for this simulator.</span>
             </div>
             <label className="acknowledgement payment-safety-check">
               <input
@@ -2649,7 +2634,7 @@ function App() {
                 <p><b>Razorpay order:</b> {payment.gatewayOrderId}</p>
                 <p><b>Gateway:</b> {payment.gatewayReference || "RAZORPAY"}</p>
                 <p><b>Payment status:</b> {payment.paymentStatus}</p>
-                <p><b>Next:</b> Complete the Razorpay checkout window. If Razorpay already showed success, refresh the payment status instead of starting another payment.</p>
+                <p><b>Next:</b> Complete the Razorpay Test Mode checkout using the UPI simulator. If Razorpay already showed success, refresh the payment status instead of creating another order.</p>
                 <div className="form-navigation">
                   <button type="button" className="secondary-button" onClick={async () => {
                     setBusy(true);
