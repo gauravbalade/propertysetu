@@ -397,8 +397,7 @@ function App() {
 
   async function login(event) {
     event.preventDefault();
-    if (busy) return;
-    clearMessages();
+    if (busy) return;    clearMessages();
 
     const errors = [];
     if (!loginForm.username.trim()) errors.push("Enter your username.");
@@ -797,8 +796,7 @@ function App() {
       // pending Razorpay orders for the same application.
       const data = payment && payment.paymentStatus !== "SUCCESS" && payment.gatewayOrderId
         ? payment
-        : await request("/api/payments/order", {
-            method: "POST",
+        : await request("/api/payments/order", {            method: "POST",
             body: JSON.stringify({
               applicationId: application.id,
               amount: 500
@@ -1197,8 +1195,7 @@ function App() {
       showValidation(["Enter the 6-digit password-reset OTP."]);
       return;
     }
-    if (!resetReqId) {
-      showValidation(["This password-reset OTP session is no longer active. Request a new code."]);
+    if (!resetReqId) {      showValidation(["This password-reset OTP session is no longer active. Request a new code."]);
       return;
     }
 
@@ -1597,7 +1594,6 @@ function App() {
     };
     return guidance[step] || ["Application workspace", "Use the guided sections below to continue your academic demonstration."];
   }
-
   async function verifySelected(status) {
     if (!selectedApplication) {
       setError("Select an application first.");
@@ -1997,7 +1993,6 @@ function App() {
 
           <div className="auth-trust-row"><span>🔒 Protected sign-in session</span><span>👤 Applicant workspace</span><span>✓ Guided workflow</span></div>
         </section>
-
         <div className="public-footer"><span>PropertySetu · Academic demonstration</span><span>No official registration is performed here.</span></div>
       </main>
     );
@@ -2397,8 +2392,7 @@ function App() {
           <p className="eyebrow">APPLICATION READINESS</p>
           <h3>{applicationProgress()} of 7 sections complete</h3>
           <p className="muted">{applicationProgress() === 7 ? "Your application and test-mode payment are complete." : "Complete each section in order. Your saved records remain available after you sign in again."}</p>
-        </div>
-        <div className="readiness-steps">
+        </div>        <div className="readiness-steps">
           {["Owner", "Property", "Location", "Application", "Documents", "Review", "Payment"].map((label, index) => {
             const currentIndex = applicationProgress() - 1;
             const complete = applicationProgress() === 7 || index < currentIndex;
@@ -2616,8 +2610,9 @@ function App() {
             </div>
             <div className="decision-note payment-test-guide">
               <b>⚠️ TEST MODE ONLY — protect your real payment credentials</b>
-              <span>Razorpay Test Mode is a sandbox. Use only Razorpay's documented test card details or simulated UPI values. Never enter a real card number, CVV, UPI PIN, bank password, banking OTP or any OTP received for a real account. If checkout asks for real financial credentials or a real authentication OTP, stop and close the checkout.</span>
-              <span><strong>Recommended demo path:</strong> choose <b>UPI</b> in Razorpay Checkout and enter <code>success@razorpay</code> as the simulated UPI ID. This is a Razorpay Test Mode value; no real UPI PIN or banking OTP is required for this simulator.</span>
+              <span>Razorpay Test Mode is a sandbox, but the Checkout screen can still look like a normal payment page. Use only Razorpay's documented sandbox values. Never enter a real card number, CVV, UPI PIN, bank password, banking OTP or any OTP received for a real account. <b>Never use a real card just because the page displays ₹500.</b> If Checkout asks for real financial credentials or a real authentication OTP, stop and close the checkout.</span>
+              <span><strong>Safest demo path:</strong> use Razorpay's Test Mode values only. If <b>UPI</b> is shown, use the documented simulated UPI value. If UPI is not shown, choose <b>Cards</b> and use only the official Razorpay test-card details.</span>
+              <span><strong>OTP safety rule:</strong> never enter a real card, CVV, UPI PIN, bank password or real SMS/bank OTP. A Razorpay Test Mode mock Success/Failure screen is safe to use. If Checkout asks for a real banking OTP or other real financial authentication, <b>stop and close Checkout</b> — do not continue.</span>
             </div>
             <label className="acknowledgement payment-safety-check">
               <input
@@ -2634,7 +2629,7 @@ function App() {
                 <p><b>Razorpay order:</b> {payment.gatewayOrderId}</p>
                 <p><b>Gateway:</b> {payment.gatewayReference || "RAZORPAY"}</p>
                 <p><b>Payment status:</b> {payment.paymentStatus}</p>
-                <p><b>Next:</b> Complete the Razorpay Test Mode checkout using the UPI simulator. If Razorpay already showed success, refresh the payment status instead of creating another order.</p>
+                <p><b>Next:</b> Complete the Razorpay Test Mode checkout using only Razorpay's documented sandbox values. If UPI is unavailable, use the Cards test flow. If you close Checkout before a captured test payment, the record remains PENDING; use “Refresh payment status” after a completed test payment instead of creating another order.</p>
                 <div className="form-navigation">
                   <button type="button" className="secondary-button" onClick={async () => {
                     setBusy(true);
