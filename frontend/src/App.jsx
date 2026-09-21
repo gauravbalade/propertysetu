@@ -26,6 +26,7 @@ function App() {
   const [property, setProperty] = useState(null);
   const [application, setApplication] = useState(null);
   const [payment, setPayment] = useState(null);
+  const [paymentDemoAcknowledged, setPaymentDemoAcknowledged] = useState(false);
   const [properties, setProperties] = useState([]);
   const [officerMode, setOfficerMode] = useState(false);
   const [applications, setApplications] = useState([]);
@@ -721,6 +722,7 @@ function App() {
       setApplicantApplications(previous => previous.filter(item => item.id !== application.id));
       setUploadedDocuments([]);
       setPayment(null);
+      setPaymentDemoAcknowledged(false);
       setApplication(null);
       setPurpose("");
       setPurposeType("");
@@ -745,6 +747,7 @@ function App() {
       );
 
       setApplication(data);
+      setPaymentDemoAcknowledged(false);
       setMessage("Application submitted successfully.");
       setStep("payment");
     } catch (err) {
@@ -767,7 +770,8 @@ function App() {
       setApplication(reconciled.application);
 
       if (reconciled.paymentStatus === "SUCCESS") {
-        setMessage("Razorpay test payment confirmed successfully.");
+        setPaymentDemoAcknowledged(false);
+        setMessage("Razorpay Test Mode payment confirmed successfully.");
         if (moveToComplete) setStep("paymentComplete");
       }
 
@@ -781,6 +785,11 @@ function App() {
   async function createPayment() {
     if (busy) return;
     clearMessages();
+
+    if (!paymentDemoAcknowledged) {
+      showValidation(["Confirm that you will use Razorpay Test Mode only before opening checkout. Never enter a real card number, CVV, UPI PIN, bank credential or real payment OTP."]);
+      return;
+    }
     setBusy(true);
 
     try {
@@ -807,7 +816,7 @@ function App() {
         amount: Math.round(Number(data.amount) * 100),
         currency: data.currency || "INR",
         name: "PropertySetu",
-        description: "Academic property application demonstration fee",
+        description: "PropertySetu academic demonstration — Razorpay Test Mode",
         order_id: data.gatewayOrderId,
         prefill: {
           name: owner?.name || user?.username || "",
@@ -837,7 +846,8 @@ function App() {
 
             setPayment(verified);
             setApplication(verified.application);
-            setMessage("Razorpay payment verified successfully.");
+            setPaymentDemoAcknowledged(false);
+            setMessage("Razorpay Test Mode payment verified successfully.");
             setStep("paymentComplete");
 
             void request("/api/applications")
@@ -1506,6 +1516,7 @@ function App() {
       ]);
       setUploadedDocuments(documents || []);
       setPayment(savedPayment);
+      setPaymentDemoAcknowledged(false);
       await loadAuditHistory(selected.id);
 
       if (selected.status === "DRAFT") {
@@ -1633,7 +1644,7 @@ function App() {
               <button type="button" onClick={() => { clearMessages(); setStep("login"); }}>Explore the workflow <span>→</span></button>
               <button type="button" className="secondary-button" onClick={() => setShowAbout(true)}>See how it works</button>
             </div>
-            <div className="trust-strip"><span>✓ JWT authentication</span><span>✓ Email + mobile OTP</span><span>✓ Role-based access</span><span>✓ Razorpay test gateway</span><span>✓ Audit history</span></div>
+            <div className="trust-strip"><span>✓ JWT authentication</span><span>✓ Contact details stored with account</span><span>✓ Role-based access</span><span>✓ Razorpay test gateway</span><span>✓ Audit history</span></div>
             <div className={`backend-status ${backendStatus}`} role="status" aria-live="polite">
               <span aria-hidden="true">●</span>
               {backendStatus === "online" && "Backend ready"}
@@ -2212,11 +2223,11 @@ function App() {
         <div>
           <p className="eyebrow">ACCOUNT SECURITY</p>
           <h3>Contact verification</h3>
-          <p className="muted">Your applicant account requires both registered contact channels to be verified before password login is enabled.</p>
+          <p className="muted">Your registered email and mobile number are stored with your account for contact and password-recovery purposes. Registration does not require OTP.</p>
         </div>
         <div className="security-badges">
-          <span className={user?.emailVerified ? "verified" : "pending"}>✉ {user?.emailVerified ? "Email verified" : "Email pending"}</span>
-          <span className={user?.phoneVerified ? "verified" : "pending"}>⌕ {user?.phoneVerified ? "Mobile verified" : "Mobile pending"}</span>
+          <span className="verified">✉ Email on account</span>
+          <span className="verified">⌕ Mobile on account</span>
           <span className="verified">🔐 JWT session</span>
         </div>
       </section>
@@ -2592,21 +2603,31 @@ function App() {
               <div>
                 <span className="payment-gateway-badge">RAZORPAY · TEST MODE</span>
                 <h3>Secure hosted checkout</h3>
-                <p>Payment details are entered inside Razorpay Checkout. PropertySetu never asks you to type card or UPI credentials into this application.</p>
+                <p>Payment details, if required, are entered inside Razorpay Checkout. PropertySetu never asks you to type card, CVV, UPI PIN, bank credentials or payment OTP into this application.</p>
               </div>
               <div className="payment-amount">₹500<span>INR</span></div>
             </div>
             <div className="decision-note payment-test-guide">
-              <b>Evaluator test details — no real card required</b>
-              <span>Razorpay Test Mode accepts simulated payment details. For Card, use Mastercard <strong>5267 3181 8797 5449</strong>, any future expiry date and any random 3-digit CVV. If UPI is shown, use <strong>success@razorpay</strong>. These are sandbox values only; never enter real card, UPI PIN or bank credentials.</span>
+              <b>⚠️ TEST MODE ONLY — protect your real payment credentials</b>
+              <span>Razorpay Test Mode is a sandbox. Use only Razorpay's documented test card details or simulated UPI values. Never enter a real card number, CVV, UPI PIN, bank password, banking OTP or any OTP received for a real account. If checkout asks for real financial credentials or a real authentication OTP, stop and close the checkout.</span>
+              <span><strong>Example successful UPI test:</strong> <code>success@razorpay</code>. Test values can change, so use Razorpay's current Test Mode documentation/dashboard for card test data.</span>
             </div>
-            {!payment && <button onClick={createPayment} disabled={busy}>{busy ? "Opening Razorpay…" : "Pay ₹500 with Razorpay"}</button>}
+            <label className="acknowledgement payment-safety-check">
+              <input
+                type="checkbox"
+                checked={paymentDemoAcknowledged}
+                onChange={event => setPaymentDemoAcknowledged(event.target.checked)}
+                disabled={busy}
+              />
+              <span><b>I understand this is a Razorpay Test Mode demonstration.</b> I will use sandbox values only and will never enter real card, CVV, UPI PIN, bank credentials or a real payment OTP.</span>
+            </label>
+            {!payment && <button onClick={createPayment} disabled={busy || !paymentDemoAcknowledged}>{busy ? "Opening Razorpay…" : "Open Razorpay Test Checkout"}</button>}
             {payment && payment.paymentStatus !== "SUCCESS" && (
               <div className="summary">
                 <p><b>Razorpay order:</b> {payment.gatewayOrderId}</p>
                 <p><b>Gateway:</b> {payment.gatewayReference || "RAZORPAY"}</p>
                 <p><b>Payment status:</b> {payment.paymentStatus}</p>
-                <p><b>Next:</b> Complete the Razorpay checkout window. If Razorpay already showed success, refresh the payment status instead of paying again.</p>
+                <p><b>Next:</b> Complete the Razorpay checkout window. If Razorpay already showed success, refresh the payment status instead of starting another payment.</p>
                 <div className="form-navigation">
                   <button type="button" className="secondary-button" onClick={async () => {
                     setBusy(true);
