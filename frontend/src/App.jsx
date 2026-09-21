@@ -201,7 +201,11 @@ function App() {
 
     let response;
 
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    const method = String(options.method || "GET").toUpperCase();
+    const retryableRequest = ["GET", "HEAD", "OPTIONS"].includes(method);
+    const maxAttempts = retryableRequest ? 3 : 1;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
       try {
         response = await fetch(API + url, {
           ...options,
@@ -212,7 +216,7 @@ function App() {
         });
         break;
       } catch (error) {
-        if (attempt < 2) {
+        if (attempt < maxAttempts - 1) {
           await new Promise(resolve => setTimeout(resolve, 2500 * (attempt + 1)));
         }
       }
@@ -282,6 +286,7 @@ function App() {
     setBusy(false);
     setUser(null);
     setOfficerMode(false);
+    setLoginForm({ username: "", password: "" });
     setOwner(null);
     setProperty(null);
     setApplication(null);
@@ -575,25 +580,23 @@ function App() {
 
     try {
       const existingLocation = await request(`/api/locations/property/${property.id}`).catch(() => null);
+      const locationPayload = {
+        propertyId: property.id,
+        ...locationForm
+      };
       if (!existingLocation) {
         await request("/api/locations", {
           method: "POST",
-          body: JSON.stringify({
-            propertyId: property.id,
-            ...locationForm
-          })
+          body: JSON.stringify(locationPayload)
         });
       } else {
-        setLocationForm({
-          address: existingLocation.address || "",
-          city: existingLocation.city || "",
-          district: existingLocation.district || "",
-          state: existingLocation.state || "",
-          pincode: existingLocation.pincode || ""
+        await request(`/api/locations/${existingLocation.id}`, {
+          method: "PUT",
+          body: JSON.stringify(locationPayload)
         });
       }
 
-      setMessage(existingLocation ? "Saved property location loaded." : "Property location saved successfully.");
+      setMessage(existingLocation ? "Property location updated successfully." : "Property location saved successfully.");
       setStep("application");
     } catch (err) {
       setError(err.message);
@@ -845,7 +848,10 @@ function App() {
               })
               .catch(() => {});
           } catch (err) {
-            setError(err.message);
+            const reconciled = await reconcilePaymentStatus(data, true);
+            if (!reconciled || reconciled.paymentStatus !== "SUCCESS") {
+              setError(err.message);
+            }
           } finally {
             setBusy(false);
           }
@@ -2590,14 +2596,31 @@ function App() {
               </div>
               <div className="payment-amount">₹500<span>INR</span></div>
             </div>
+            <div className="decision-note payment-test-guide">
+              <b>Evaluator test details — no real card required</b>
+              <span>Razorpay Test Mode accepts simulated payment details. For Card, use Mastercard <strong>5267 3181 8797 5449</strong>, any future expiry date and any random 3-digit CVV. If UPI is shown, use <strong>success@razorpay</strong>. These are sandbox values only; never enter real card, UPI PIN or bank credentials.</span>
+            </div>
             {!payment && <button onClick={createPayment} disabled={busy}>{busy ? "Opening Razorpay…" : "Pay ₹500 with Razorpay"}</button>}
             {payment && payment.paymentStatus !== "SUCCESS" && (
               <div className="summary">
                 <p><b>Razorpay order:</b> {payment.gatewayOrderId}</p>
                 <p><b>Gateway:</b> {payment.gatewayReference || "RAZORPAY"}</p>
                 <p><b>Payment status:</b> {payment.paymentStatus}</p>
-                <p><b>Next:</b> Complete the Razorpay checkout window. The server will verify the returned signature.</p>
-                <button onClick={createPayment} disabled={busy}>{busy ? "Opening Razorpay…" : "Open Razorpay checkout again"}</button>
+                <p><b>Next:</b> Complete the Razorpay checkout window. If Razorpay already showed success, refresh the payment status instead of paying again.</p>
+                <div className="form-navigation">
+                  <button type="button" className="secondary-button" onClick={async () => {
+                    setBusy(true);
+                    clearMessages();
+                    const refreshed = await reconcilePaymentStatus(payment, false);
+                    if (refreshed?.paymentStatus === "SUCCESS") {
+                      setStep("paymentComplete");
+                    } else if (refreshed) {
+                      setMessage("No captured Razorpay payment was found yet. Complete the test checkout or try refreshing again.");
+                    }
+                    setBusy(false);
+                  }} disabled={busy}>{busy ? "Checking…" : "Refresh payment status"}</button>
+                  <button type="button" onClick={createPayment} disabled={busy}>{busy ? "Opening Razorpay…" : "Open Razorpay checkout again"}</button>
+                </div>
               </div>
             )}
             <div className="form-navigation">
