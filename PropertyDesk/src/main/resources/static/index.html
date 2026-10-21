@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="PropertyDesk academic property registration dashboard">
+  <title>PropertyDesk | Property Registration</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#"><span class="brand-mark">P</span><span>PropertyDesk<small>PROPERTY REGISTRATION</small></span></a>
+    <div class="side-label">WORKSPACE</div>
+    <a class="nav-link active" href="#overview">▦ <span>Overview</span></a>
+    <a class="nav-link" href="#owners">♙ <span>Owners</span></a>
+    <a class="nav-link" href="#properties">⌂ <span>Properties</span></a>
+    <a class="nav-link" href="#locations">⌖ <span>Locations</span></a>
+    <a class="nav-link" href="#visits">◷ <span>Visit requests</span></a>
+    <div class="sidebar-note"><strong>Academic demo</strong><p>Manage sample property records locally. This is not an official government portal.</p></div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar"><div><span class="eyebrow">PROPERTY MANAGEMENT</span><h1>Workspace overview</h1><p class="subtitle">Keep owner details, property records and visit requests in one place.</p></div><div class="top-actions"><span class="status-dot">API workspace</span><button class="button button-primary" id="refreshButton">↻ Refresh data</button></div></header>
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+    <section id="overview" class="stats">
+      <article class="stat-card"><div class="stat-icon purple">⌂</div><div><p>Total properties</p><strong id="propertyCount">—</strong><small>Registered records</small></div></article>
+      <article class="stat-card"><div class="stat-icon blue">♙</div><div><p>Property owners</p><strong id="ownerCount">—</strong><small>Owner profiles</small></div></article>
+      <article class="stat-card"><div class="stat-icon amber">◷</div><div><p>Visit requests</p><strong id="visitCount">—</strong><small>All request statuses</small></div></article>
+      <article class="stat-card"><div class="stat-icon green">✓</div><div><p>Registered</p><strong id="registeredCount">—</strong><small>Property status</small></div></article>
+    </section>
+
+    <section class="panel quick-panel">
+      <div class="section-heading"><div><span class="eyebrow">GET STARTED</span><h2>Register a property</h2><p>Create an owner first, then link a property record to that owner.</p></div><span class="step-chip">01 / 03</span></div>
+      <div class="quick-steps"><div><span>1</span><strong>Add owner</strong><small>Name and contact</small></div><i></i><div><span>2</span><strong>Add property</strong><small>Type, area and owner</small></div><i></i><div><span>3</span><strong>Add location</strong><small>Address and pincode</small></div></div>
+    </section>
+
+    <section id="owners" class="panel">
+      <div class="section-heading"><div><span class="eyebrow">OWNER MANAGEMENT</span><h2>Property owners</h2><p>Add an owner profile before registering a property.</p></div></div>
+      <form id="ownerForm" class="form-grid">
+        <label>Full name<input name="fullName" placeholder="e.g. Asha Patil" maxlength="80" required></label>
+        <label>Email address<input name="email" type="email" placeholder="asha@example.com" maxlength="120" required></label>
+        <label>Phone number<input name="phone" placeholder="10-digit contact number" maxlength="20" required></label>
+        <button class="button button-primary" type="submit">+ Add owner</button>
+      </form>
+      <div class="table-wrap"><table><thead><tr><th>ID</th><th>OWNER</th><th>EMAIL</th><th>PHONE</th></tr></thead><tbody id="ownersTable"><tr><td colspan="4" class="empty">Loading owner records…</td></tr></tbody></table></div>
+    </section>
+
+    <section id="properties" class="panel">
+      <div class="section-heading"><div><span class="eyebrow">PROPERTY REGISTER</span><h2>Property records</h2><p>Create and track property registration status.</p></div></div>
+      <form id="propertyForm" class="form-grid">
+        <label>Property title<input name="title" placeholder="Family Apartment" maxlength="100" required></label>
+        <label>Property type<select name="propertyType" required><option value="">Choose type</option><option>Apartment</option><option>Independent House</option><option>Plot</option><option>Commercial</option><option>Office</option><option>Other</option></select></label>
+        <label>Area (sq. ft.)<input name="areaSqFt" type="number" min="0" step="0.01" placeholder="850" required></label>
+        <label>Owner<select name="ownerId" id="ownerSelect" required><option value="">Add an owner first</option></select></label>
+        <button class="button button-primary" type="submit">+ Register property</button>
+      </form>
+      <div class="table-wrap"><table><thead><tr><th>ID</th><th>PROPERTY</th><th>TYPE / AREA</th><th>OWNER</th><th>STATUS</th><th>UPDATE STATUS</th></tr></thead><tbody id="propertiesTable"><tr><td colspan="6" class="empty">Loading property records…</td></tr></tbody></table></div>
+    </section>
+
+    <section id="locations" class="panel">
+      <div class="section-heading"><div><span class="eyebrow">ADDRESS DETAILS</span><h2>Property locations</h2><p>Each property can have one location record.</p></div></div>
+      <form id="locationForm" class="form-grid form-grid-wide">
+        <label>Property<select name="propertyId" id="locationPropertySelect" required><option value="">Register a property first</option></select></label>
+        <label>Address<input name="address" placeholder="Flat, building, road" maxlength="255" required></label>
+        <label>City<input name="city" placeholder="Navi Mumbai" maxlength="80" required></label>
+        <label>District<input name="district" placeholder="Thane" maxlength="80" required></label>
+        <label>State<input name="state" placeholder="Maharashtra" maxlength="80" required></label>
+        <label>Pincode<input name="pincode" inputmode="numeric" pattern="[0-9]{6}" placeholder="400708" maxlength="6" required></label>
+        <button class="button button-primary" type="submit">+ Save location</button>
+      </form>
+      <div class="table-wrap"><table><thead><tr><th>PROPERTY</th><th>ADDRESS</th><th>CITY</th><th>DISTRICT</th><th>STATE</th><th>PINCODE</th></tr></thead><tbody id="locationsTable"><tr><td colspan="6" class="empty">Loading location records…</td></tr></tbody></table></div>
+    </section>
+
+    <section id="visits" class="panel">
+      <div class="section-heading"><div><span class="eyebrow">VISIT SCHEDULING</span><h2>Visit requests</h2><p>Create a visit request and update its progress.</p></div></div>
+      <form id="visitForm" class="form-grid">
+        <label>Property<select name="propertyId" id="visitPropertySelect" required><option value="">Register a property first</option></select></label>
+        <label>Visit date<input name="visitDate" type="date" id="visitDate" required></label>
+        <label class="field-wide">Note<input name="note" placeholder="Optional note for the visit" maxlength="500"></label>
+        <button class="button button-primary" type="submit">+ Request visit</button>
+      </form>
+      <div class="table-wrap"><table><thead><tr><th>ID</th><th>PROPERTY</th><th>VISIT DATE</th><th>NOTE</th><th>STATUS</th><th>UPDATE STATUS</th></tr></thead><tbody id="visitsTable"><tr><td colspan="6" class="empty">Loading visit requests…</td></tr></tbody></table></div>
+    </section>
+    <footer>PropertyDesk · Student project demonstration · Java 17 · Spring Boot · MySQL</footer>
+  </main>
+  <script src="/app.js" defer></script>
+</body>
+</html>
