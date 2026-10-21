@@ -7,7 +7,9 @@ import org.springframework.stereotype.Service;
 import com.gaurav.propertydesk.entities.Owner;
 import com.gaurav.propertydesk.entities.PropertyRecord;
 import com.gaurav.propertydesk.repositories.OwnerRepository;
+import com.gaurav.propertydesk.repositories.PropertyLocationRepository;
 import com.gaurav.propertydesk.repositories.PropertyRecordRepository;
+import com.gaurav.propertydesk.repositories.VisitRequestRepository;
 import com.gaurav.propertydesk.response_wrapper.CustomResponse;
 import com.gaurav.propertydesk.response_wrapper.Response;
 
@@ -20,17 +22,28 @@ public class PropertyService {
     OwnerRepository ownerRepository;
 
     @Autowired
+    PropertyLocationRepository locationRepository;
+
+    @Autowired
+    VisitRequestRepository visitRepository;
+
+    @Autowired
     Response response;
 
     public ResponseEntity<CustomResponse> addProperty(PropertyRecord property) {
         if (property.getOwner() == null || property.getOwner().getId() == null) {
             return response.send("Please provide a valid owner id", null, HttpStatus.BAD_REQUEST);
         }
+        if (!isAllowedPropertyStatus(property.getStatus())) {
+            return response.send("Status must be AVAILABLE, UNDER_REVIEW, or REGISTERED",
+                    null, HttpStatus.BAD_REQUEST);
+        }
         Owner owner = ownerRepository.findById(property.getOwner().getId()).orElse(null);
         if (owner == null) {
             return response.send("Owner not found", null, HttpStatus.NOT_FOUND);
         }
         property.setOwner(owner);
+        property.setStatus(property.getStatus().toUpperCase());
         PropertyRecord savedProperty = propertyRepository.save(property);
         return response.send("Property registered successfully", savedProperty, HttpStatus.CREATED);
     }
@@ -58,9 +71,9 @@ public class PropertyService {
         if (property == null) {
             return response.send("Property not found", null, HttpStatus.NOT_FOUND);
         }
-        if (!status.equalsIgnoreCase("AVAILABLE") && !status.equalsIgnoreCase("UNDER_REVIEW")
-                && !status.equalsIgnoreCase("REGISTERED")) {
-            return response.send("Status must be AVAILABLE, UNDER_REVIEW, or REGISTERED", null, HttpStatus.BAD_REQUEST);
+        if (!isAllowedPropertyStatus(status)) {
+            return response.send("Status must be AVAILABLE, UNDER_REVIEW, or REGISTERED",
+                    null, HttpStatus.BAD_REQUEST);
         }
         property.setStatus(status.toUpperCase());
         return response.send("Property status updated", propertyRepository.save(property), HttpStatus.OK);
@@ -70,7 +83,18 @@ public class PropertyService {
         if (!propertyRepository.existsById(propertyId)) {
             return response.send("Property not found", null, HttpStatus.NOT_FOUND);
         }
+        if (locationRepository.existsByPropertyId(propertyId) || visitRepository.existsByPropertyId(propertyId)) {
+            return response.send(
+                    "This property cannot be deleted while a location or visit request is linked to it.",
+                    null, HttpStatus.CONFLICT);
+        }
         propertyRepository.deleteById(propertyId);
         return response.send("Property deleted successfully", null, HttpStatus.OK);
+    }
+
+    private boolean isAllowedPropertyStatus(String status) {
+        return status != null && (status.equalsIgnoreCase("AVAILABLE")
+                || status.equalsIgnoreCase("UNDER_REVIEW")
+                || status.equalsIgnoreCase("REGISTERED"));
     }
 }
