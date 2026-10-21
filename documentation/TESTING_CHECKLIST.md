@@ -1,52 +1,37 @@
-# Testing Checklist and Result
+# Testing Checklist
 
-## Automated checks
+Use synthetic accounts and Razorpay Test Mode only.
 
-| Check | Result |
-|---|---|
-| `npm run lint` | Passed |
-| `npm run build` | Passed |
-| `./mvnw test` / `mvnw.cmd test` | Passed: 1 test, 0 failures, 0 errors |
-| Spring context starts | Passed |
-| MySQL connection on port 3307 | Passed |
+## Application startup
+- [ ] MySQL-compatible database is running.
+- [ ] Backend starts with configured environment variables.
+- [ ] Frontend development server starts and can reach the API.
+- [ ] No real secret or uploaded personal document is tracked by Git.
 
-## End-to-end checks
+## Authentication and authorization
+- [ ] Applicant registration and login return expected responses.
+- [ ] Wrong password and malformed inputs are rejected.
+- [ ] Protected routes reject missing/invalid JWTs.
+- [ ] Applicant cannot read or edit another applicant's resources.
+- [ ] Applicant cannot call officer/admin-only operations.
 
-- [x] Applicant registration
-- [x] Applicant login returns JWT
-- [x] Owner profile creation
-- [x] Property creation
-- [x] Location creation
-- [x] Application creation
-- [x] Document upload
-- [x] Application submission
-- [x] Test payment order creation
-- [x] Test payment success and signature flag
-- [x] Officer login
-- [x] Officer dashboard loading
-- [x] Application search
-- [x] Status filtering
-- [x] Officer verification
-- [x] Rejection path
-- [x] Completed application cannot be verified again
-- [x] Unauthenticated protected API returns `403`
-- [x] Applicant cannot access officer verification route
-- [x] Password is absent from JSON user responses
-- [x] Logout clears the browser JWT
+## Domain behavior
+- [ ] Property and location persist and reload.
+- [ ] Draft applications can be edited according to current rules.
+- [ ] Submitted applications reject prohibited edits.
+- [ ] File upload enforces size/type rules and reports errors clearly.
+- [ ] Invalid application state transitions are rejected.
+- [ ] Officer decisions persist with authorized user and remarks.
 
-## Final manual smoke test
+## Payment (Test Mode)
+- [ ] Backend creates the gateway order with a server-decided amount.
+- [ ] Checkout never receives private gateway secrets.
+- [ ] Invalid signature is rejected.
+- [ ] Wrong amount/order reference or an uncaptured payment is rejected.
+- [ ] Duplicate callback/webhook processing is idempotent.
+- [ ] Only a verified payment causes the allowed application-state transition.
 
-1. Start MySQL, backend and frontend.
-2. Create a fresh applicant account with a unique username and email.
-3. Complete one complete applicant flow using a small fake PDF or image.
-4. Copy the generated application number.
-5. Log out and sign in as the demo officer.
-6. Search and verify the application.
-7. Capture screenshots only after replacing personal data with demo values.
-
-## Known limitations
-
-- Payment is test mode, not live Razorpay.
-- Current development schema uses Hibernate update rather than migrations.
-- Local uploads are not yet backed by cloud object storage.
-- Public deployment still requires platform configuration, secrets and a managed database.
+## Build checks
+- [ ] Run `.\mvnw.cmd test` from `backend`.
+- [ ] Run `npm run build` from `frontend`.
+- [ ] Record actual test output in the report; do not describe an unrun test as passed.
