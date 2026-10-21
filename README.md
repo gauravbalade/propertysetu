@@ -197,3 +197,8 @@ See `documentation/API_GUIDE.md`, `documentation/DATABASE.md`, `documentation/LO
 ## License
 
 See [LICENSE](LICENSE).
+
+
+## New classroom-style Java project
+
+A separate Spring Boot + MySQL starter project following the layered conventions demonstrated in the Shopify classroom code is available in [`PropertyDesk/`](PropertyDesk/README.md). It manages property owners, property records, locations, and visit requests; it is separate from the existing full-stack PropertySetu application.
