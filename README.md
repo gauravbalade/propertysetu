@@ -1,204 +1,196 @@
 # PropertySetu — Academic Property Application Workflow
 
-## About
+## Overview
 
-PropertySetu is a student-developed academic project that demonstrates
-a guided digital property application workflow.
+PropertySetu is a student-developed full-stack property application workflow. It demonstrates the layered Spring Boot architecture taught through the Shopify classroom project while applying it to a distinct, non-e-commerce domain.
 
-The project brings together:
+- Applicant and role management
+- Owner, property, and location records
+- Document uploads and application review
+- Application lifecycle and officer decisions
+- Razorpay Test Mode payment workflow
+- JWT authentication and role-based authorization
+- React + Vite user interface and MySQL-compatible persistence
 
-- Applicant information
-- Property details
-- Property location
-- Supporting documents
-- Application review
-- Test-mode payment
+> **Academic project notice:** This is a learning/demo platform, not an official government property-registration portal. It does not perform official registration or provide legal approval. Keep payments in Razorpay Test Mode and use synthetic documents.
 
-### Important Notice
-
-PropertySetu is an academic demonstration project.
-
-It is NOT an official Government of Maharashtra,
-IGR Maharashtra, or government registration portal.
-
-No official government property registration is performed
-through this application.
-
-Payment functionality is provided through Razorpay Test Mode when server-side test credentials are configured. No live government fee or official registration payment is represented.
-
-PropertySetu is a security-conscious academic product concept that makes a property application easier to understand, submit, pay for, and review through one traceable workflow.
-
-> **Product promise:** one guided application journey, protected documents, accountable review, secure hosted payment, and a clear status trail.
-
-This is an academic MVP and demonstration platform—not a government service or a substitute for legal advice. Exact requirements vary by transaction and registering office.
-
-## What the system does
-
-Applicants can create an account, enter owner and property information, edit draft records, save the property location, upload/replace/remove supporting documents, submit an application, recover a forgotten password, and complete a clearly labelled Razorpay Test Mode payment. Email and mobile details are stored with the account; OTP verification is reserved for password recovery rather than being a mandatory onboarding step. Draft applications can be edited or deleted; once an application leaves DRAFT status, its core property/location/application data is frozen by the backend.
-
-Officers can sign in to a protected dashboard, search applications, filter by status, review the submitted information, and verify or reject eligible paid applications.
-
-> **Payment note:** the payment layer is implemented against Razorpay's server-created Orders API and Checkout flow. The backend verifies the returned Razorpay signature and captured amount. The deployment must use Razorpay Test Mode credentials for the academic demo; no live transaction is implied.
-
-## Project structure
+## Architecture
 
 ```text
-PropertyRegistrationSystem/
-├── backend/              # Spring Boot source and deployment container
+PropertySetu/
+├── backend/
+│   ├── pom.xml
+│   └── src/main/java/com/gaurav/property/
+│       ├── config/       # Spring Security, CORS and app configuration
+│       ├── controller/   # REST API endpoints
+│       ├── dto/          # Request/response transfer objects
+│       ├── entity/       # JPA entities and enums
+│       ├── repository/   # Spring Data JPA interfaces
+│       ├── security/     # JWT services and authentication helpers
+│       └── service/      # Business rules, transactions and gateway calls
 ├── frontend/             # React + Vite application
-├── database/             # database notes and SQL reference
-├── documentation/        # API, testing, deployment and report material
-├── presentation/         # presentation outline and demo script
-└── demo/uploads/         # local uploaded-document directory
+├── database/             # schema notes and local setup
+├── documentation/        # API, testing, deployment and design docs
+├── presentation/         # demo script and project report
+└── demo/uploads/          # local demo upload directory
 ```
+
+## Classroom concepts mapped to PropertySetu
+
+| Classroom Spring concept | PropertySetu equivalent |
+|---|---|
+| ShopifyApplication | PropertyRegistrationBackendApplication |
+| User / Customer | UserAccount / Owner |
+| Product | Property |
+| Category / SubCategory | Property type / application purpose |
+| Cart / Order workflow | RegistrationApplication workflow |
+| OrderItem | ApplicationDocument / application-to-property relationship |
+| Vendor | PropertyOwner |
+| Product/Category repositories | Property, Owner, Location and Application repositories |
+| Services | PropertyService, ApplicationService, PaymentService, DocumentService |
+| Controllers | REST controllers for property, application, document, auth, verification and payment |
+| DTOs | Validated API request and response types |
+| Security configuration + JWT | Stateless token authentication and role-based access |
+| PaymentController / PaymentService | Razorpay Test Mode order creation and server-side verification |
+| Specifications/search | Application and property filtering/search where supported |
+| Response wrapper | Consistent REST error/success responses where implemented |
+
+This is a conceptual mapping, not a claim that every classroom class has a one-to-one equivalent. PropertySetu models property records and review workflows rather than products, shopping carts, inventory or e-commerce orders.
+
+## Domain model and relationships
+
+Core domain records include:
+
+1. **UserAccount** — authenticated identity and role
+2. **Owner** — owner profile belonging to an applicant
+3. **Property** — property information maintained by an owner
+4. **Location** — address and jurisdiction details for a property
+5. **RegistrationApplication** — application lifecycle, owner, property and purpose
+6. **Document** — metadata and safe storage reference for supporting files
+7. **Verification** — officer decision, status, timestamp and remarks
+8. **Payment** — gateway order/payment references and verification state
+
+Simplified relationship view:
+
+```text
+UserAccount (Applicant)
+   └── Owner
+        └── Property ─── Location
+             └── RegistrationApplication
+                    ├── Documents
+                    ├── Payment
+                    └── Verification (Officer)
+```
+
+Actual cardinality follows the JPA annotations in the source.
+
+## Main user journeys
+
+### Applicant
+1. Register and authenticate.
+2. Create or update owner details.
+3. Add a property and location.
+4. Create a draft application and upload supporting documents.
+5. Submit the application.
+6. Create a Razorpay Test Mode order and complete hosted Checkout.
+7. View payment and application status.
+
+### Officer / administrator
+1. Sign in with a privately provisioned account.
+2. Search/filter applications and inspect submitted details.
+3. Review supporting records.
+4. Verify or reject eligible applications with remarks.
+5. Review the resulting application status/audit trail.
+
+## Application lifecycle
+
+```text
+DRAFT → SUBMITTED → PAYMENT_PENDING → PAID → UNDER_VERIFICATION
+                                                ├── COMPLETED
+                                                └── REJECTED
+```
+
+The backend should enforce legal state transitions on the server; the frontend is not trusted to determine payment success or officer authorization.
+
+## Payment architecture
+
+The academic demo uses Razorpay Test Mode when server-side credentials are configured.
+
+1. The backend creates/reuses an order using an amount derived from server-side application rules.
+2. The frontend receives the public Key ID and order ID.
+3. Checkout collects payment details on the gateway-hosted interface.
+4. The backend validates the returned signature and confirms payment/order amount and status with the provider.
+5. Webhook reconciliation can update payment state after validating the webhook signature.
+
+Never commit gateway secrets, database credentials, JWT signing keys, SMS-provider tokens, or uploaded personal documents. Never represent a browser-only success message as proof of payment. Keep the displayed fee clearly identified as an academic test fee.
 
 ## Technology stack
 
-- Frontend: React 19, Vite, responsive CSS
-- Backend: Spring Boot 4.1.1, Spring Web, Spring Data JPA, Spring Security
-- Database: TiDB Cloud for the deployed academic environment (MySQL-compatible SQL); MySQL may be used locally
-- Authentication: BCrypt passwords and stateless JWT bearer tokens; applicant onboarding is direct and password recovery uses OTP
-- Recovery: email OTP password reset
-- Verification/recovery: MSG91 integration is retained for optional contact verification and password recovery; the academic deployment can use its server-side demo OTP fallback
-- Uploads: multipart document upload stored outside the database
-- Payment: Razorpay Orders API + Standard Checkout + server-side signature/amount verification + webhook reconciliation
-- Transactional notifications: optional SendGrid application-status email
+- Java 17
+- Spring Boot 4.x
+- Spring Web MVC, Spring Data JPA, Spring Security and Bean Validation
+- MySQL locally; compatible MySQL service may be used for the hosted demo
+- JWT bearer authentication and BCrypt password hashing
+- Razorpay Java SDK (Test Mode)
+- React 19, Vite and responsive CSS
+- Maven wrapper for reproducible backend commands
 
-## Run locally
+## Local setup
 
-### 1. Start MySQL
+### 1. Create the database
 
-Create the database in MySQL Workbench:
+In MySQL Workbench:
 
 ```sql
 CREATE DATABASE property_registration_db;
 ```
 
-For local development, configure your own MySQL connection through environment variables rather than publishing credentials. Example placeholders:
+Configure backend environment variables for your local database connection and a strong JWT signing secret. The repository's `.env.example` files are templates only; do not store real values in Git.
 
-```text
-DB_URL=jdbc:mysql://localhost:3307/property_registration_db?useSSL=false&serverTimezone=Asia/Kolkata
-DB_USERNAME=your-local-user
-DB_PASSWORD=your-local-password
-JWT_SECRET=replace-with-at-least-32-characters
-UPLOAD_DIR=D:/PropertyRegistrationSystem/demo/uploads
-FRONTEND_ORIGIN=http://localhost:5173
-FRONTEND_ORIGINS=https://frontend-six-amber-63.vercel.app
-# Optional MSG91 widget configuration is only needed for real OTP delivery
-VITE_MSG91_WIDGET_ID=
-VITE_MSG91_WIDGET_TOKEN=
-TWILIO_VERIFY_SERVICE_SID=your-twilio-verify-service-sid
-RAZORPAY_KEY_ID=rzp_test_your-key-id
-RAZORPAY_KEY_SECRET=your-test-key-secret
-RAZORPAY_WEBHOOK_SECRET=your-webhook-secret
-SENDGRID_API_KEY=your-sendgrid-api-key
-SENDGRID_FROM_EMAIL=verified-sender@example.com
-SENDGRID_FROM_NAME=PropertySetu
-```
-
-### 2. Start the backend
-
-Open Spring Tools/Eclipse and run the backend from:
-
-```text
-D:\Spring-Workspace\property-registration-backend
-```
-
-Or use the wrapper in PowerShell:
+### 2. Run the backend (PowerShell)
 
 ```powershell
-cd D:\Spring-Workspace\property-registration-backend
+cd backend
 .\mvnw.cmd spring-boot:run
 ```
 
-The API starts at `http://localhost:8080`.
+The default API port is `8080`.
 
-### 3. Start the frontend
+### 3. Run the frontend
 
 ```powershell
-cd D:\PropertyRegistrationSystem\frontend
+cd frontend
 npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`.
+Open the Vite URL printed by the command (normally `http://localhost:5173`). Set `VITE_API_URL` to the backend URL if needed.
 
-For a deployed backend, create `frontend/.env`:
+## Verification checklist
 
-```text
-VITE_API_URL=https://your-backend.example.com
-```
+- [ ] MySQL service is running and the database exists.
+- [ ] Backend starts without dependency or datasource errors.
+- [ ] Frontend development server starts and can reach the API.
+- [ ] Registration and login work with test accounts.
+- [ ] Protected endpoints reject missing/invalid bearer tokens.
+- [ ] Applicants cannot inspect or modify another applicant's records.
+- [ ] Officer-only decisions are rejected for applicant roles.
+- [ ] Document upload validates type/size and stores files outside the public frontend.
+- [ ] Invalid application-state transitions are rejected.
+- [ ] Payment amount and signatures are verified server-side in Test Mode.
+- [ ] Secrets and private uploads are absent from Git history.
+- [ ] Frontend production build and backend test suite complete successfully.
 
-## Demonstration accounts
+See `documentation/API_GUIDE.md`, `documentation/DATABASE.md`, `documentation/TESTING_CHECKLIST.md` and `presentation/DEMO_SCRIPT.md` for detail.
 
-| Role | Username | Password |
-|---|---|---|
-| Officer | Provision a private officer account in the deployment database | Do not publish credentials |
+## Future improvements
 
-Create a new applicant account from the application itself. Configure officer credentials privately in the hosting database or administration process; never publish them in the repository.
+- Use Flyway/Liquibase migrations and validate the deployment schema.
+- Add fine-grained authorization tests and concurrency protections for review.
+- Add malware scanning, private object storage, retention controls and authenticated downloads.
+- Add throttling, structured audit logging, monitoring, backups and secret management.
+- Add integration tests for payment webhooks and failure/retry states.
 
-## Demonstration flow
+## License
 
-1. Register and log in as an applicant.
-2. Create the owner profile.
-3. Add a property and its location.
-4. Create the registration application.
-5. Upload a PDF, JPG, or PNG document.
-6. Submit the application.
-7. Create the Razorpay Test Mode order and complete Checkout.
-8. The backend verifies the Razorpay signature and captured amount.
-9. Log out and sign in with the privately provisioned officer account.
-10. Search for the application, open it, and verify it.
-11. Confirm the application moves from `PAID` to `UNDER_VERIFICATION` to `COMPLETED`.
-
-## Validation already completed
-
-- Frontend ESLint: passed
-- Frontend production build: passed
-- Backend Maven test suite: passed
-- JWT login: passed
-- Protected request without JWT: returns HTTP `403`
-- Officer-only verification route: protected by role
-- Payment transition: `PENDING` to `SUCCESS`, signature flag true in test flow
-- Verification transition: paid application to completed application
-- Completed-application protection: prevents repeated verification
-
-See `documentation/` for the API guide, test checklist, database notes, deployment plan, report text, and limitations.
-
-## Public demo deployment notes
-
-The repository can be published publicly, but a public code repository is not the same as a running website. Deploy the frontend and backend separately, use a managed MySQL database, and configure the environment variables from `.env.example` in the hosting dashboards. Never commit real passwords, JWT secrets, database credentials, or identity documents.
-
-For the first free academic demonstration, use synthetic documents only, keep payment in clearly labelled test mode, restrict CORS to the deployed frontend domain, use a strong production JWT secret, and keep the database on a provider with backups or a persistent storage plan. A public demo is not a government registration service and does not provide legal approval.
-
-Before real-world use, add migration-based schema management with `DDL_AUTO=validate`, private object storage, malware scanning, retention/deletion workflows, rate limiting, managed secrets, HTTPS, monitoring, backups, privacy/legal review, accessibility testing, and a verified payment-provider integration with server-side signature verification.
-
-
-## Account verification
-
-Applicant registration is intentionally a two-channel verification gate:
-
-1. The backend creates the applicant as inactive.
-2. Twilio Verify sends an email OTP and an SMS OTP.
-3. The applicant verifies both channels.
-4. Only after both checks succeed is the applicant account activated for password login.
-5. OTP verification is handled by the verification provider; OTP values are never stored in the PropertySetu database.
-
-For local/deployed use, configure the Twilio Verify service with email and SMS channels. Phone numbers are normalized to Indian E.164 format (`+91XXXXXXXXXX`).
-
-## Razorpay payment architecture
-
-The payment flow is intentionally server-controlled:
-
-1. Applicant submits the application.
-2. Backend creates the Razorpay Order for exactly ₹500 (50,000 paise).
-3. Frontend receives only the public Razorpay Key ID and the server-created Order ID.
-4. Razorpay Standard Checkout opens in the browser.
-5. Checkout returns the Razorpay order ID, payment ID and signature.
-6. Backend verifies the signature using the Razorpay Key Secret.
-7. Backend fetches the payment and checks that it is captured and exactly ₹500.
-8. A signed Razorpay webhook can reconcile the payment asynchronously.
-
-Never put `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, Twilio Auth Token, database passwords, or JWT secrets in the frontend or Git repository.
-
-Razorpay's official guidance requires server-side order creation, signature validation, trusted order IDs, and secure handling of API secrets. Twilio Verify's current API provides verification start/check flows for SMS and email channels. The frontend also throttles resend actions to reduce accidental repeated sends; Twilio Verify provides its own verification-attempt protections and configurable service rate limits. Optional SendGrid notifications are best-effort and never block the application or payment transaction.
+See [LICENSE](LICENSE).
