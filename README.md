@@ -137,6 +137,9 @@ Never commit gateway secrets, database credentials, JWT signing keys, SMS-provid
 
 ## Local setup
 
+For step-by-step Windows instructions for MySQL, Spring Boot, Eclipse / Spring Tool Suite, VS Code and React, see [Run PropertySetu on Windows](documentation/LOCAL_SETUP_WINDOWS.md).
+
+
 ### 1. Create the database
 
 In MySQL Workbench:
@@ -181,7 +184,7 @@ Open the Vite URL printed by the command (normally `http://localhost:5173`). Set
 - [ ] Secrets and private uploads are absent from Git history.
 - [ ] Frontend production build and backend test suite complete successfully.
 
-See `documentation/API_GUIDE.md`, `documentation/DATABASE.md`, `documentation/TESTING_CHECKLIST.md` and `presentation/DEMO_SCRIPT.md` for detail.
+See `documentation/API_GUIDE.md`, `documentation/DATABASE.md`, `documentation/LOCAL_SETUP_WINDOWS.md` and `documentation/TESTING_CHECKLIST.md` for setup, API and verification details.
 
 ## Future improvements
 
