@@ -3,6 +3,7 @@ package com.gaurav.propertydesk.entities;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Entity
@@ -32,6 +33,7 @@ public class PropertyLocation {
     @Column(nullable = false, length = 80)
     private String state;
 
+    @NotBlank
     @Pattern(regexp = "[0-9]{6}", message = "Pincode must contain exactly 6 digits")
     @Column(nullable = false, length = 6)
     private String pincode;
