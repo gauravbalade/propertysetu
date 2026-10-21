@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Simple Helpdesk</title><link rel="stylesheet" th:href="@{/css/style.css}"></head>
+<body><header class="topbar"><div><span class="brand-mark">H</span><span class="brand">Simple Helpdesk</span></div><span class="top-note">Service Request Management</span></header>
+<main class="container">
+<section class="hero"><div><p class="eyebrow">REQUEST TRACKER</p><h1>Keep every request moving.</h1><p class="muted">Create, update and track service requests from one simple dashboard.</p></div><a class="button primary" th:href="@{/requests/new}">+ New Request</a></section>
+<section class="stats"><article class="stat"><span>Open</span><strong th:text="${openCount}">0</strong></article><article class="stat"><span>In progress</span><strong th:text="${progressCount}">0</strong></article><article class="stat"><span>Closed</span><strong th:text="${closedCount}">0</strong></article></section>
+<section class="panel"><div class="panel-heading"><h2>All requests</h2><p class="muted">Manage requests and change their status.</p></div>
+<div class="empty" th:if="${#lists.isEmpty(requests)}"><div class="empty-icon">✓</div><h3>No requests yet</h3><p>Create your first service request to get started.</p><a class="button primary" th:href="@{/requests/new}">Create request</a></div>
+<div class="table-wrap" th:unless="${#lists.isEmpty(requests)}"><table><thead><tr><th>Request</th><th>Requested by</th><th>Category</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+<tr th:each="item : ${requests}"><td><strong th:text="${item.title}">Projector issue</strong><small th:text="${item.description}">Description</small></td><td th:text="${item.requesterName}">Name</td><td><span class="category" th:text="${item.category}">IT Support</span></td>
+<td><form class="status-form" th:action="@{/requests/status/{id}(id=${item.id})}" method="post"><select name="status" aria-label="Request status" onchange="this.form.submit()"><option value="OPEN" th:selected="${item.status == 'OPEN'}">Open</option><option value="IN_PROGRESS" th:selected="${item.status == 'IN_PROGRESS'}">In progress</option><option value="CLOSED" th:selected="${item.status == 'CLOSED'}">Closed</option></select></form></td>
+<td><div class="actions"><a class="button small secondary" th:href="@{/requests/edit/{id}(id=${item.id})}">Edit</a><form th:action="@{/requests/delete/{id}(id=${item.id})}" method="post" onsubmit="return confirm('Delete this request?')"><button class="button small danger" type="submit">Delete</button></form></div></td></tr>
+</tbody></table></div></section><footer>Simple Helpdesk · Academic demonstration · Not an e-commerce application</footer></main></body></html>
