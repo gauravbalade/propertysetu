@@ -8,4 +8,5 @@ import com.gaurav.propertydesk.entities.VisitRequest;
 @Repository
 public interface VisitRequestRepository extends JpaRepository<VisitRequest, Long> {
     List<VisitRequest> findByPropertyId(Long propertyId);
+    boolean existsByPropertyId(Long propertyId);
 }
