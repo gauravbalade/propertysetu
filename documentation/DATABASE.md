@@ -1,46 +1,50 @@
 # Database Setup and Schema Notes
 
-## Local connection
+## Local database
 
-- Host: `localhost`
-- Port: `3307`
-- Database: `property_registration_db`
-- User: `root`
-- Password: local development value only; do not commit real credentials
-
-Create the database:
+Create a local schema in MySQL Workbench:
 
 ```sql
 CREATE DATABASE property_registration_db;
 ```
 
-The backend currently uses Hibernate `ddl-auto=update` for local development. For a production deployment, replace this with versioned Flyway or Liquibase migrations.
+The backend connection is configured using environment variables. Do not publish credentials from an example configuration.
 
-## Core entities
+## Core domain entities
 
-1. `user_accounts` — applicant, officer and admin identities
-2. `owners` — owner identity and contact information
-3. `properties` — property number, type, area, description and registration status
-4. `locations` — address, city, district, state and pincode
-5. `registration_applications` — application number, purpose, owner account and workflow status
-6. `documents` — document type, file metadata and upload location
-7. `verifications` — officer decision, date, status and remarks
-8. `payments` — amount, test gateway order, payment status and signature flag
+1. `user_accounts` — applicant, officer and administrator identities
+2. `owners` — owner profile and contact details
+3. `properties` — property description, type and owner relationship
+4. `locations` — address and geographic/jurisdiction fields
+5. `registration_applications` — application purpose, references and workflow state
+6. `documents` — document type, metadata and storage reference
+7. `verifications` — officer decision, date, state and remarks
+8. `payments` — gateway order/payment references and verification status
 
-## Safe local reset
+Names and exact mappings follow the JPA entity annotations.
 
-Only when local demo data can be discarded:
+## Local setup
 
-```sql
-DROP DATABASE property_registration_db;
-CREATE DATABASE property_registration_db;
-```
+Configure at least:
 
-Then restart the backend so Hibernate recreates the development schema.
+- `DB_URL`
+- `DB_USERNAME`
+- `DB_PASSWORD`
+- `JWT_SECRET`
+- `UPLOAD_DIR`
+- `FRONTEND_ORIGIN`
+- `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` for Test Mode payments
+
+Never commit values for these variables. Use `.env.example` only as a checklist of expected configuration.
+
+## Schema evolution
+
+Hibernate's `ddl-auto=update` is convenient for a local classroom demonstration only. Before production, add Flyway or Liquibase migrations, test upgrades from prior versions, and switch deployment schema handling to validation.
 
 ## Data protection checklist
 
-- Never commit passwords, JWT secrets, uploaded identity documents or production database dumps.
-- Use fake identities for screenshots and demonstrations.
+- Use fake identities and synthetic sample documents.
 - Store uploads outside the public frontend directory.
-- Add file size, MIME validation, malware scanning and authenticated download endpoints before production.
+- Apply file type/size validation and authenticated authorization for file access.
+- Avoid public database dumps and uploaded documents.
+- Keep gateway secrets and JWT signing keys private.
