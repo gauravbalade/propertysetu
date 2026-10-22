@@ -41,7 +41,7 @@ The backend flow is **Browser/Postman → Controller → Service → Repository 
    ```sql
    CREATE DATABASE propertydesk_db;
    ```
-3. The local defaults in `src/main/resources/application.properties` are MySQL username `root`, password `root`, and port `3306`, matching the current development setup. If your credentials differ, change them locally or set `DB_USERNAME`, `DB_PASSWORD` and optionally `DB_URL` as environment variables. **Do not reuse the root/root credentials on a shared or production database. Never commit real credentials to a public repository.**
+3. The database username defaults to `root` and the port to `3306`. Keep your password local rather than committing it to GitHub. For this machine, set the `DB_PASSWORD` environment variable to your MySQL password (`root`) before starting the app, or edit `spring.datasource.password` locally without committing that change. You may also set `DB_USERNAME` and `DB_URL` as environment variables. **Never commit database credentials to a public repository, and do not reuse root credentials on a shared or production database.**
 4. Open the `PropertyDesk` folder in Eclipse/Spring Tool Suite as **Existing Maven Project**, or open it in VS Code with Java and Spring extensions. If Eclipse reports missing Lombok-generated methods, install Lombok for Eclipse and enable annotation processing, then refresh the Maven project.
 5. Run `PropertyDeskApplication.java`, or open a terminal in the `PropertyDesk` folder and run:
    ```powershell
