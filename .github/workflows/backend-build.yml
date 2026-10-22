@@ -11,11 +11,31 @@ on:
       - ".github/workflows/backend-build.yml"
 
 jobs:
-  compile:
+  test-and-package:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: property_registration_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
     defaults:
       run:
         working-directory: backend
+    env:
+      DB_URL: jdbc:mysql://127.0.0.1:3306/property_registration_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      JWT_SECRET: ci-test-secret-must-be-at-least-32-characters-long
+      UPLOAD_DIR: /tmp/propertysetu-test-uploads
+      FRONTEND_ORIGIN: http://localhost:5173
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -27,5 +47,5 @@ jobs:
           cache: maven
       - name: Make Maven wrapper executable
         run: chmod +x mvnw
-      - name: Compile backend and test sources
-        run: ./mvnw -B -DskipTests package
+      - name: Run backend tests and package application
+        run: ./mvnw -B test package
