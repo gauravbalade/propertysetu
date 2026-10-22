@@ -30,10 +30,10 @@ Open MySQL Workbench and connect to your local MySQL Server. Run:
 CREATE DATABASE property_registration_db;
 ```
 
-The backend default URL uses port `3307`. If your MySQL server uses the common port `3306`, set `DB_URL` to:
+The backend default URL uses the common MySQL port `3306`. If your MySQL server uses a custom port such as `3307`, set `DB_URL` to that port, for example:
 
 ```text
-jdbc:mysql://localhost:3306/property_registration_db?useSSL=false&serverTimezone=Asia/Kolkata
+jdbc:mysql://localhost:3307/property_registration_db?useSSL=false&serverTimezone=Asia/Kolkata
 ```
 
 Set `DB_USERNAME` and `DB_PASSWORD` to your local MySQL credentials. Do not commit real passwords or secrets.
@@ -45,12 +45,12 @@ Open `backend/src/main/resources/application.properties` and review the environm
 ```powershell
 $env:DB_URL="jdbc:mysql://localhost:3306/property_registration_db?useSSL=false&serverTimezone=Asia/Kolkata"
 $env:DB_USERNAME="root"
-$env:DB_PASSWORD="YOUR_LOCAL_MYSQL_PASSWORD"
+$env:DB_PASSWORD="root"
 $env:JWT_SECRET="REPLACE_WITH_A_LONG_RANDOM_SECRET_FOR_LOCAL_DEVELOPMENT"
 $env:FRONTEND_ORIGIN="http://localhost:5173"
 ```
 
-Replace the example password and secret with your own local values. Never publish them. If your local MySQL server uses port 3307, keep that port instead.
+These commands match the stated local MySQL username/password (`root` / `root`). The JWT secret shown is for local development only; use a private random value for your machine and never publish it. If your local MySQL server uses port 3307, use that port in `DB_URL` instead.
 
 ## 4. Start Spring Boot backend
 
