@@ -41,11 +41,11 @@ The backend flow is **Browser/Postman → Controller → Service → Repository 
    ```sql
    CREATE DATABASE propertydesk_db;
    ```
-3. Open `src/main/resources/application.properties` and set your local MySQL username and password. The defaults are username `root`, blank password, and port `3306`. Never commit your real database password to a public repository.
+3. The local defaults in `src/main/resources/application.properties` are MySQL username `root`, password `root`, and port `3306`, matching the current development setup. If your credentials differ, change them locally or set `DB_USERNAME`, `DB_PASSWORD` and optionally `DB_URL` as environment variables. **Do not reuse the root/root credentials on a shared or production database. Never commit real credentials to a public repository.**
 4. Open the `PropertyDesk` folder in Eclipse/Spring Tool Suite as **Existing Maven Project**, or open it in VS Code with Java and Spring extensions. If Eclipse reports missing Lombok-generated methods, install Lombok for Eclipse and enable annotation processing, then refresh the Maven project.
 5. Run `PropertyDeskApplication.java`, or open a terminal in the `PropertyDesk` folder and run:
    ```powershell
-   .\\mvnw.cmd spring-boot:run
+   .\mvnw.cmd spring-boot:run
    ```
 6. Open **http://localhost:8081/** for the dashboard. The REST API base URL is **http://localhost:8081/api/v1**. Hibernate creates/updates tables for this learning project.
 
@@ -82,8 +82,8 @@ Other endpoints:
 ## Build and test
 From the `PropertyDesk` directory:
 ```powershell
-.\\mvnw.cmd test
-.\\mvnw.cmd package
+.\mvnw.cmd test
+.\mvnw.cmd package
 ```
 GitHub Actions builds the project with Java 17, runs the unit tests, and packages the application. Tests cover the shared response wrapper, invalid property status handling, and protection against deleting properties that still have linked location or visit records. These automated checks do not replace a full live MySQL/browser acceptance test.
 
