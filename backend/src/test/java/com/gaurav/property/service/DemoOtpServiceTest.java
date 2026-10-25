@@ -20,6 +20,19 @@ class DemoOtpServiceTest {
     }
 
     @Test
+    void resetOtpCanSupportVerificationStepButIsInvalidatedAfterPasswordReset() {
+        DemoOtpService service = new DemoOtpService(true);
+        String code = service.issue("ApplicantOne", "RESET");
+
+        assertTrue(service.verify("ApplicantOne", "RESET", code));
+        assertTrue(service.verify("ApplicantOne", "RESET", code));
+
+        service.clear("ApplicantOne", "RESET");
+
+        assertFalse(service.verify("ApplicantOne", "RESET", code));
+    }
+
+    @Test
     void demoOtpRejectsUnsupportedChannels() {
         DemoOtpService service = new DemoOtpService(true);
 
