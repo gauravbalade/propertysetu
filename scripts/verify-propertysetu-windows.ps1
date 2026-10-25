@@ -40,6 +40,9 @@ if (-not (Test-Path (Join-Path $Frontend "package-lock.json"))) {
     try {
         npm ci
         if ($LASTEXITCODE -ne 0) { throw "npm ci failed with exit code $LASTEXITCODE" }
+        npm run lint
+        if ($LASTEXITCODE -ne 0) { throw "npm run lint failed with exit code $LASTEXITCODE" }
+        Write-Host "Frontend lint: PASS" -ForegroundColor Green
         npm run build
         if ($LASTEXITCODE -ne 0) { throw "npm run build failed with exit code $LASTEXITCODE" }
         Write-Host "Frontend production build: PASS" -ForegroundColor Green
