@@ -190,6 +190,9 @@ public class UserAccountService {
         user.setPassword(passwordEncoder.encode(newPassword));
         user.setPasswordResetVerificationSid(null);
         userAccountRepository.save(user);
+        // A reset OTP is reusable during the verify-then-reset UI flow, but must
+        // be invalidated as soon as the password change succeeds.
+        demoOtpService.clear(user.getUsername(), "RESET");
         auditService.record("PASSWORD_RESET_COMPLETED", "USER", user.getId(), user,
                 "Password reset completed in academic fallback mode");
     }
