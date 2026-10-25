@@ -13,8 +13,8 @@ class DemoOtpServiceTest {
         DemoOtpService service = new DemoOtpService(true);
         String code = service.issue("ApplicantOne", "email");
 
-        assertFalse(service.verify("ApplicantOne", "EMAIL", "000000".equals(code) ? "000001" : "000000")
-                && !"000000".equals(code));
+        String wrongCode = "000000".equals(code) ? "000001" : "000000";
+        assertFalse(service.verify("ApplicantOne", "EMAIL", wrongCode));
         assertTrue(service.verify("applicantone", "email", code));
         assertFalse(service.verify("ApplicantOne", "EMAIL", code));
     }
