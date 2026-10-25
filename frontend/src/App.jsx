@@ -102,11 +102,10 @@ function App() {
   const [submissionAcknowledged, setSubmissionAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
   const [backendStatus, setBackendStatus] = useState("checking");
-  const [verificationUsername, setVerificationUsername] = useState("");
-  const [verificationEmail, setVerificationEmail] = useState("");
-  const [verificationPhone, setVerificationPhone] = useState("");
+  const [verificationUsername] = useState("");
+  const [verificationEmail] = useState("");
+  const [verificationPhone] = useState("");
   const [verificationCodes, setVerificationCodes] = useState({ EMAIL: "", PHONE: "" });
-  const [msg91Ready, setMsg91Ready] = useState(false);
   const [msg91ReqIds, setMsg91ReqIds] = useState({ EMAIL: "", PHONE: "" });
   const [demoOtpCodes, setDemoOtpCodes] = useState({ EMAIL: "", PHONE: "", RESET: "" });
   const [verificationState, setVerificationState] = useState({ EMAIL: false, PHONE: false });
@@ -142,35 +141,16 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!MSG91_WIDGET_ID || !MSG91_WIDGET_TOKEN) {
-      setMsg91Ready(false);
-      return undefined;
-    }
-
-    if (typeof window !== "undefined" && typeof window.initSendOTP === "function") {
-      setMsg91Ready(true);
-      return undefined;
-    }
+    if (!MSG91_WIDGET_ID || !MSG91_WIDGET_TOKEN) return undefined;
+    if (typeof window !== "undefined" && typeof window.initSendOTP === "function") return undefined;
 
     const existing = document.querySelector('script[src="https://verify.msg91.com/otp-provider.js"]');
     const script = existing || document.createElement("script");
     script.src = "https://verify.msg91.com/otp-provider.js";
     script.async = true;
 
-    const handleLoad = () => {
-      setMsg91Ready(typeof window.initSendOTP === "function");
-    };
-    const handleError = () => setMsg91Ready(false);
-
-    script.addEventListener("load", handleLoad);
-    script.addEventListener("error", handleError);
-
     if (!existing) document.body.appendChild(script);
-
-    return () => {
-      script.removeEventListener("load", handleLoad);
-      script.removeEventListener("error", handleError);
-    };
+    return undefined;
   }, []);
 
   useEffect(() => {
@@ -216,7 +196,7 @@ function App() {
           }
         });
         break;
-      } catch (error) {
+      } catch {
         if (attempt < maxAttempts - 1) {
           await new Promise(resolve => setTimeout(resolve, 2500 * (attempt + 1)));
         }
@@ -387,7 +367,7 @@ function App() {
           setStep("owner");
           setMessage(`Welcome, ${data.username}. Let’s create your owner profile.`);
         }
-      } catch (err) {
+      } catch {
         setError("Your account is signed in, but saved application records could not be loaded yet. Use Refresh status to try again.");
       } finally {
         setWorkspaceLoading(false);

@@ -2,13 +2,14 @@
 
 ## Current milestone
 
-The local academic MVP is complete and verified for demonstration. The product supports applicant registration, secure login, guided property-registration preparation, document submission, simulated payment, officer review, document-level decisions, application status tracking, and audit history.
+The academic MVP source is maintained in this repository. On the `propertysetu/windows-verification` working branch, the latest GitHub Actions checks passed: frontend dependency installation, ESLint, and production build; backend Maven tests and packaging with the workflow MySQL service. These checks confirm build/test health, not a fresh end-to-end browser test of every user journey. The product supports applicant registration, secure login, guided property-registration preparation, document submission, simulated payment, officer review, document-level decisions, application status tracking, and audit history.
 
 ## Start order
 
-1. Start MySQL80 and confirm the `property_registration_db` database exists.
-2. Start the backend from `D:\Spring-Workspace\property-registration-backend` in Spring Tools/Eclipse, using the configured Java environment.
-3. Start the frontend from `D:\PropertyRegistrationSystem\frontend` with `npm run dev`.
+1. Extract the repository ZIP and open the extracted `propertysetu` folder.
+2. Start MySQL and confirm the `property_registration_db` database exists.
+3. Start the backend from the repository's `backend` folder in Spring Tools/Eclipse, using the configured Java environment.
+4. Start the frontend from the repository's `frontend` folder with `npm ci` and `npm run dev`.
 4. Open `http://localhost:5173`.
 
 ## Demonstration flow
@@ -41,7 +42,7 @@ cd D:\Spring-Workspace\property-registration-backend
 .\mvnw.cmd test -q
 ```
 
-Both completed successfully during final verification. The backend connected to MySQL on port `3307` and loaded nine JPA repositories.
+The latest branch CI runs confirmed frontend lint/build and backend Maven test/package success using the workflow's MySQL service. A fresh local run on another Windows machine is not implied by CI.
 
 ## Deliberate scope boundaries
 

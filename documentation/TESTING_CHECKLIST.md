@@ -15,6 +15,12 @@ Use synthetic accounts and Razorpay Test Mode only.
 - [ ] Applicant cannot read or edit another applicant's resources.
 - [ ] Applicant cannot call officer/admin-only operations.
 
+## Academic demo OTP fallback
+- [ ] Confirm `DEMO_OTP_ENABLED` is false by default; demo OTP endpoints must reject requests while disabled.
+- [ ] When explicitly enabled for an academic demo, verify that EMAIL/PHONE OTPs are single-use and expire.
+- [ ] Confirm a password-reset OTP can be checked by the reset UI, then becomes unusable after the password update succeeds.
+- [ ] Never enable demo OTP fallback as a substitute for production-grade identity verification.
+
 ## Domain behavior
 - [ ] Property and location persist and reload.
 - [ ] Draft applications can be edited according to current rules.

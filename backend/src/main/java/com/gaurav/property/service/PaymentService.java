@@ -164,7 +164,7 @@ public class PaymentService {
             return toResponse(payment);
         }
 
-        if (!payment.getGatewayOrderId().equals(request.getRazorpayOrderId())) {
+        if (!java.util.Objects.equals(payment.getGatewayOrderId(), request.getRazorpayOrderId())) {
             throw new RuntimeException("Payment order mismatch.");
         }
 
@@ -246,7 +246,7 @@ public class PaymentService {
                 String status = String.valueOf(razorpayPayment.get("status"));
                 long amount = Long.parseLong(String.valueOf(razorpayPayment.get("amount")));
 
-                if (payment.getGatewayOrderId().equals(orderId)
+                if (java.util.Objects.equals(payment.getGatewayOrderId(), orderId)
                         && "captured".equalsIgnoreCase(status)
                         && amount == 50000L) {
                     payment.setPaymentStatus(PaymentStatus.SUCCESS);
