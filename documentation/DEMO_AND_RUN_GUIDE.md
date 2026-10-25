@@ -15,7 +15,7 @@ For a live walkthrough of the **Spring Boot + MySQL PropertySetu project**, use 
 - Deployed frontend listed in the repository: https://frontend-six-amber-63.vercel.app
 - Backend health endpoint listed in the repository: https://propertysetu-backend.onrender.com/api/health
 
-A listed URL is not proof that the service is currently healthy. Check it in a browser immediately before the presentation. The latest verified automated checks are frontend ESLint + production build and backend Maven tests/package; they do not prove every live/browser workflow was manually tested.
+A listed URL is not proof that the service is currently healthy. Check it in a browser immediately before the presentation. The merged PR reports successful frontend ESLint + production build and backend Maven tests/package. These automated checks do not prove every live/browser workflow was manually tested. Before presenting, follow `documentation/POST_MERGE_VERIFICATION.md` and record which checks you actually completed.
 
 ## Run PropertySetu locally on Windows
 
@@ -23,7 +23,7 @@ A listed URL is not proof that the service is currently healthy. Check it in a b
 Install JDK 17, Node.js LTS/npm and MySQL Server. Use Eclipse/Spring Tool Suite for the Java backend and VS Code or a terminal for React.
 
 ### 1. Download the correct source
-Open the repository, select **Code → Download ZIP**, extract it, and open the extracted root folder. For the latest changes from this review, use the `propertysetu/windows-verification` branch / PR ZIP, not the default `main` branch ZIP.
+Open the repository, select **Code → Download ZIP**, extract it, and open the extracted root folder. The `propertysetu/windows-verification` pull request has been merged into `main`. Download the default branch ZIP for the latest merged version; you no longer need to use the old feature-branch ZIP.
 
 ### 2. Create the database
 In MySQL Workbench run:
