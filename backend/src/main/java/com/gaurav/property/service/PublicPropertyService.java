@@ -95,7 +95,7 @@ public class PublicPropertyService {
                 property.getPropertyNumber(),
                 property.getPropertyType(),
                 property.getArea(),
-                null,
+                property.getDescription(),
                 property.getRegistrationStatus(),
                 property.getOwner().getName(),
                 maskedReference,
