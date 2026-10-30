@@ -15,6 +15,10 @@ const API = configuredApiUrl?.startsWith("http://") ||
 
 function App() {
   const [step, setStep] = useState("home");
+  const [publicProperties, setPublicProperties] = useState([]);
+  const [publicSearch, setPublicSearch] = useState("");
+  const [publicLoading, setPublicLoading] = useState(false);
+  const [selectedPublicProperty, setSelectedPublicProperty] = useState(null);
   const [showAbout, setShowAbout] = useState(false);
   const [loginPasswordVisible, setLoginPasswordVisible] = useState(false);
   const [purposeType, setPurposeType] = useState("");
@@ -171,6 +175,22 @@ function App() {
   const hasRequiredDocuments = requiredDocumentTypes.every(type =>
     uploadedDocuments.some(document => document.documentType === type)
   );
+
+  async function loadPublicProperties(query = "") {
+    setPublicLoading(true);
+    try {
+      const suffix = query.trim() ? `?query=${encodeURIComponent(query.trim())}` : "";
+      const response = await fetch(API + "/api/public/properties" + suffix);
+      const data = await response.json().catch(() => []);
+      if (!response.ok) throw new Error(data.message || "Unable to load the public property registry.");
+      setPublicProperties(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setPublicProperties([]);
+      setError(err.message);
+    } finally {
+      setPublicLoading(false);
+    }
+  }
 
   async function request(url, options = {}) {
     const token = user?.token || sessionStorage.getItem("property_registration_token");
@@ -1613,6 +1633,7 @@ function App() {
           </div>
         </header>
 
+          <button className="nav-link" type="button" onClick={() => { clearMessages(); setStep("publicRegistry"); loadPublicProperties(""); }}>Public property registry</button>
         <section className="hero-home">
           <div className="hero-home-copy">
             <div className="academic-badge">STUDENT-DEVELOPED · ACADEMIC DEMONSTRATION</div>
@@ -1673,6 +1694,70 @@ function App() {
         </section>}
 
         <footer className="public-footer"><span>PropertySetu · Student academic project</span><span>Test-mode payment · No official registration</span></footer>
+      </main>
+    );
+  }
+
+  if (step === "publicRegistry" && !officerMode) {
+    return (
+      <main className="app public-home">
+        <header className="site-nav">
+          <button className="brand-button" type="button" onClick={() => setStep("home")}>
+            <span className="brand-mark">P</span><span><b>PropertySetu</b><small>Academic project</small></span>
+          </button>
+          <div className="nav-actions">
+            <button className="nav-link" type="button" onClick={() => { setStep("login"); clearMessages(); }}>Applicant sign in</button>
+            <button className="nav-ghost" type="button" onClick={() => setStep("home")}>← Home</button>
+          </div>
+        </header>
+        <section className="registry-intro">
+          <p className="eyebrow">PUBLIC PROPERTY REGISTRY</p>
+          <h1>Search verified property records.</h1>
+          <p className="muted">Browse properties that have completed the application's officer-verification workflow.</p>
+          <form className="registry-search" onSubmit={event => { event.preventDefault(); loadPublicProperties(publicSearch); }}>
+            <input aria-label="Search properties" value={publicSearch} onChange={event => setPublicSearch(event.target.value)} placeholder="Search by property number, type, city or district" />
+            <button type="submit" disabled={publicLoading}>{publicLoading ? "Searching…" : "Search"}</button>
+          </form>
+          <p className="registry-privacy-note">Only approved public property details are shown. Private identity documents, phone numbers, email addresses and uploaded files are not displayed.</p>
+        </section>
+        {error && <div className="message error" role="alert">{error}</div>}
+        <section className="registry-results">
+          <div className="timeline-heading"><div><h2>Verified properties</h2><p className="muted">Records approved by an officer</p></div><span>{publicProperties.length} record(s)</span></div>
+          {publicLoading ? <p className="muted">Loading public records…</p> :
+            publicProperties.length === 0 ? <div className="registry-empty"><h3>No publicly verified properties found</h3><p>Properties appear here after an officer verifies the application and its required documents.</p></div> :
+            <div className="registry-grid">
+              {publicProperties.map(item => (
+                <article className="registry-property-card" key={item.id}>
+                  <div className="registry-card-top"><span className="registry-verified">✓ VERIFIED</span><small>{item.propertyNumber}</small></div>
+                  <h3>{item.propertyType}</h3>
+                  <p>{item.area} sq. units</p>
+                  <p className="registry-location">{[item.city, item.district, item.state].filter(Boolean).join(", ") || "Location not published"}</p>
+                  <div className="registry-owner"><small>REGISTERED OWNER</small><strong>{item.ownerDisplayName}</strong><small>Reference {item.ownerReference}</small></div>
+                  <button type="button" onClick={() => setSelectedPublicProperty(item)}>View public details</button>
+                </article>
+              ))}
+            </div>
+          }
+        </section>
+        {selectedPublicProperty && (
+          <div className="registry-modal-backdrop" role="presentation" onClick={() => setSelectedPublicProperty(null)}>
+            <section className="registry-modal" role="dialog" aria-modal="true" aria-labelledby="registry-detail-title" onClick={event => event.stopPropagation()}>
+              <div className="timeline-heading"><div><p className="eyebrow">PUBLIC RECORD</p><h2 id="registry-detail-title">{selectedPublicProperty.propertyNumber}</h2></div><button className="secondary-button" type="button" onClick={() => setSelectedPublicProperty(null)}>Close</button></div>
+              <dl className="registry-detail-list">
+                <div><dt>Property type</dt><dd>{selectedPublicProperty.propertyType}</dd></div>
+                <div><dt>Area</dt><dd>{selectedPublicProperty.area} sq. units</dd></div>
+                <div><dt>Description</dt><dd>{selectedPublicProperty.description || "Not provided"}</dd></div>
+                <div><dt>Registered owner</dt><dd>{selectedPublicProperty.ownerDisplayName}</dd></div>
+                <div><dt>Owner reference</dt><dd>{selectedPublicProperty.ownerReference}</dd></div>
+                <div><dt>Location</dt><dd>{[selectedPublicProperty.city, selectedPublicProperty.district, selectedPublicProperty.state].filter(Boolean).join(", ") || "Not published"}</dd></div>
+                <div><dt>Application reference</dt><dd>{selectedPublicProperty.applicationNumber}</dd></div>
+                <div><dt>Verification</dt><dd><span className="registry-verified">✓ {selectedPublicProperty.verificationStatus}</span></dd></div>
+              </dl>
+              <p className="registry-privacy-note">This is an academic application's verified record, not a certified government land-record extract or legal title search.</p>
+            </section>
+          </div>
+        )}
+        <footer className="public-footer"><span>PropertySetu · Student academic project</span><span>Public read-only registry · Private files protected</span></footer>
       </main>
     );
   }
