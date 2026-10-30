@@ -177,6 +177,9 @@ public class SecurityConfig {
                             "/error")
                     .permitAll()
 
+                    .requestMatchers("/api/public/properties", "/api/public/properties/**")
+                    .permitAll()
+
                     .requestMatchers(
                             "/api/admin/**")
                     .hasRole("ADMIN")
