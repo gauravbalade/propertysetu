@@ -8,10 +8,14 @@ const MSG91_WIDGET_ID = import.meta.env.VITE_MSG91_WIDGET_ID?.trim() || "";
 const MSG91_WIDGET_TOKEN = import.meta.env.VITE_MSG91_WIDGET_TOKEN?.trim() || "";
 // MSG91 is retained for password recovery; applicant onboarding does not require OTP.
 
+// Explicit VITE_API_URL always wins. Local Vite development uses the local
+// Spring Boot API by default; production builds use the deployed Render API.
 const API = configuredApiUrl?.startsWith("http://") ||
   configuredApiUrl?.startsWith("https://")
   ? configuredApiUrl.replace(/\/+$/, "")
-  : "https://propertysetu-backend.onrender.com";
+  : import.meta.env.DEV
+    ? "http://localhost:8080"
+    : "https://propertysetu-backend.onrender.com";
 
 function App() {
   const [step, setStep] = useState("home");
