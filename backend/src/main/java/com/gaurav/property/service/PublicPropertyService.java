@@ -88,17 +88,14 @@ public class PublicPropertyService {
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Verified application not found"));
 
-        String identity = property.getOwner().getIdentityNumber();
-        String maskedReference = identity == null || identity.length() < 4
-                ? "Protected"
-                : "••••" + identity.substring(identity.length() - 4);
+        String maskedReference = "Owner record #" + property.getOwner().getId();
 
         return new PublicPropertyResponse(
                 property.getId(),
                 property.getPropertyNumber(),
                 property.getPropertyType(),
                 property.getArea(),
-                property.getDescription(),
+                null,
                 property.getRegistrationStatus(),
                 property.getOwner().getName(),
                 maskedReference,
