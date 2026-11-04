@@ -2,6 +2,10 @@
 
 This repository contains two different applications. **PropertySetU** is the full React + Spring Boot application in `frontend/` and `backend/`. `PropertyDesk/` is a separate project and is intentionally not merged into PropertySetU.
 
+**Exact IDE walkthrough:** read [IDE Workflow — what to open in Spring Tools and VS Code](IDE_WORKFLOW_WINDOWS.md) for the Maven import wizard, Java main class, JDK settings, environment variables, terminal commands and which windows should stay open.
+
+**Research included:** [Advanced Product & Engineering Specification](research/ADVANCED_PRODUCT_AND_ENGINEERING_SPEC.md) and [Implementation Status After Final Pass](research/IMPLEMENTATION_STATUS_AFTER_FINAL_PASS.md).
+
 ## Requirements
 
 - Windows 10/11

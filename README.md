@@ -1,5 +1,7 @@
 # PropertySetu — Academic Property Application Workflow
 
+> **Start here:** open [START_HERE.md](START_HERE.md) first. It directs you to the correct folders for Spring Tools, VS Code and MySQL Workbench.
+
 ## Overview
 
 PropertySetu is a student-developed full-stack property application workflow. It demonstrates the layered Spring Boot architecture taught through the Shopify classroom project while applying it to a distinct, non-e-commerce domain.
@@ -30,7 +32,9 @@ PropertySetu/
 │       └── service/      # Business rules, transactions and gateway calls
 ├── frontend/             # React + Vite application
 ├── database/             # schema notes and local setup
-├── documentation/        # API, testing, deployment and design docs
+├── documentation/        # API, testing, deployment, IDE and design docs
+│   ├── IDE_WORKFLOW_WINDOWS.md
+│   └── research/          # full advanced engineering specification + implementation ledger
 ├── presentation/         # demo script and project report
 └── demo/uploads/          # local demo upload directory
 ```
@@ -150,7 +154,7 @@ Never commit gateway secrets, database credentials, JWT signing keys, SMS-provid
 
 ## Local setup
 
-For step-by-step Windows instructions for MySQL, Spring Boot, Eclipse / Spring Tool Suite, VS Code and React, see [Run PropertySetu on Windows](documentation/LOCAL_SETUP_WINDOWS.md).
+Start with [Windows IDE Workflow](documentation/IDE_WORKFLOW_WINDOWS.md) for exactly what to import in Spring Tools and what to open in VS Code. For environment setup and commands, see [Local Setup](documentation/LOCAL_SETUP_WINDOWS.md). The full [Advanced Product & Engineering Specification](documentation/research/ADVANCED_PRODUCT_AND_ENGINEERING_SPEC.md) and its [implementation status after this pass](documentation/research/IMPLEMENTATION_STATUS_AFTER_FINAL_PASS.md) are included under documentation/research/.
 
 
 ### 1. Create the database
@@ -181,6 +185,10 @@ npm run dev
 ```
 
 Open the Vite URL printed by the command (normally `http://localhost:5173`). Set `VITE_API_URL` to the backend URL if needed.
+
+## Research and implementation baseline
+
+The project includes the full Advanced Product & Engineering Specification dated 1 November 2026. The research-to-implementation ledger distinguishes current code, partially verified workflows, future target capabilities and checks not yet run. Do not present roadmap ideas such as OCR/AI, official registry integrations, property lifecycle events or production SLA management as already implemented.
 
 ## Verification checklist
 
