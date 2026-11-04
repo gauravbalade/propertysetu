@@ -67,8 +67,9 @@ Core domain records include:
 4. **Location** — address and jurisdiction details for a property
 5. **RegistrationApplication** — application lifecycle, owner, property and purpose
 6. **Document** — metadata and safe storage reference for supporting files
-7. **Verification** — officer decision, status, timestamp and remarks
-8. **Payment** — gateway order/payment references and verification state
+7. **Verification** — assigned officer decision, status, timestamp and remarks
+8. **Payment** — gateway order/payment references and server-confirmed verification state
+9. **Assignment** — administrator assignment/reassignment history for review ownership
 
 Simplified relationship view:
 
@@ -76,10 +77,11 @@ Simplified relationship view:
 UserAccount (Applicant)
    └── Owner
         └── Property ─── Location
-             └── RegistrationApplication
-                    ├── Documents
+             └── RegistrationApplication ─── assigned Officer (UserAccount)
+                    ├── Document versions
                     ├── Payment
-                    └── Verification (Officer)
+                    ├── Verification (assigned Officer)
+                    └── Audit events
 ```
 
 Actual cardinality follows the JPA annotations in the source.
@@ -95,19 +97,30 @@ Actual cardinality follows the JPA annotations in the source.
 6. Create a Razorpay Test Mode order and complete hosted Checkout.
 7. View payment and application status.
 
-### Officer / administrator
-1. Sign in with a privately provisioned account.
-2. Search/filter applications and inspect submitted details.
-3. Review supporting records.
-4. Verify or reject eligible applications with remarks.
-5. Review the resulting application status/audit trail.
+### Administrator
+1. Sign in with a privately provisioned ADMIN account.
+2. Create and deactivate Officer accounts.
+3. Inspect the full application queue and assign/reassign eligible paid cases.
+4. Review application status and audit history; administrators do not perform officer verification.
+
+### Assigned Officer
+1. Sign in with an OFFICER account.
+2. View only applications assigned to that officer.
+3. Open protected documents and mark the latest document versions under review, verified, or rejected with a correction request.
+4. Complete or reject the application with remarks after payment and required-document checks pass.
+5. Review the audit history for the assigned case.
 
 ## Application lifecycle
 
 ```text
 DRAFT → SUBMITTED → PAYMENT_PENDING → PAID → UNDER_VERIFICATION
-                                                ├── COMPLETED
-                                                └── REJECTED
+                                                   ├── COMPLETED
+                                                   ├── REJECTED
+                                                   └── NEEDS_CORRECTION
+                                                           ↓
+                                                       RESUBMITTED
+                                                           ↓
+                                                   UNDER_VERIFICATION
 ```
 
 The backend should enforce legal state transitions on the server; the frontend is not trusted to determine payment success or officer authorization.
@@ -148,7 +161,7 @@ In MySQL Workbench:
 CREATE DATABASE property_registration_db;
 ```
 
-Configure backend environment variables for your local database connection and a strong JWT signing secret. The repository's `.env.example` files are templates only; do not store real values in Git.
+The recommended first run is the Windows launcher in the repository root: double-click `START_PROPERTYSETU.bat`. Before launching, create the MySQL database and copy `backend/.env.example` to `backend/.env.local`, then enter your local DB credentials. The launcher generates a random local JWT secret when none is supplied. The optional admin bootstrap creates an administrator only when all three `ADMIN_BOOTSTRAP_*` values are provided and that account does not already exist. Remove the bootstrap password after first startup. Never store real values in Git.
 
 ### 2. Run the backend (PowerShell)
 
@@ -163,7 +176,7 @@ The default API port is `8080`.
 
 ```powershell
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
@@ -176,11 +189,16 @@ Open the Vite URL printed by the command (normally `http://localhost:5173`). Set
 - [ ] Frontend development server starts and can reach the API.
 - [ ] Registration and login work with test accounts.
 - [ ] Protected endpoints reject missing/invalid bearer tokens.
-- [ ] Applicants cannot inspect or modify another applicant's records.
-- [ ] Officer-only decisions are rejected for applicant roles.
-- [ ] Document upload validates type/size and stores files outside the public frontend.
+- [ ] Applicants cannot inspect or modify another applicant's records or download their files.
+- [ ] Admin can assign/reassign paid review-stage cases to active OFFICER accounts.
+- [ ] Officers can list and open only their assigned cases.
+- [ ] Admin inspection does not permit admin document decisions; only the assigned Officer can review/verify.
+- [ ] Document upload validates type/size/signature and stores private files outside the public frontend.
+- [ ] Replacing a document creates a new version and preserves superseded history.
+- [ ] Correction requests allow the applicant to replace rejected documents and resubmit without a second application fee.
 - [ ] Invalid application-state transitions are rejected.
-- [ ] Payment amount and signatures are verified server-side in Test Mode.
+- [ ] Verification requires a captured, signature-confirmed Razorpay Test Mode payment and the latest required document versions.
+- [ ] Payment amount, currency, order ID and signatures are verified server-side in Test Mode.
 - [ ] Secrets and private uploads are absent from Git history.
 - [ ] Frontend production build and backend test suite complete successfully.
 
