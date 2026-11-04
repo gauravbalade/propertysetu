@@ -186,8 +186,16 @@ public class PaymentService {
             RazorpayClient client = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
             com.razorpay.Payment razorpayPayment = client.payments.fetch(request.getRazorpayPaymentId());
             String status = String.valueOf(razorpayPayment.get("status"));
+            String capturedOrderId = String.valueOf(razorpayPayment.get("order_id"));
+            String currency = String.valueOf(razorpayPayment.get("currency"));
             if (!"captured".equalsIgnoreCase(status)) {
                 throw new RuntimeException("Razorpay payment is not captured yet.");
+            }
+            if (!java.util.Objects.equals(payment.getGatewayOrderId(), capturedOrderId)) {
+                throw new RuntimeException("The captured payment belongs to a different Razorpay order.");
+            }
+            if (!"INR".equalsIgnoreCase(currency)) {
+                throw new RuntimeException("The captured payment currency does not match INR.");
             }
 
             Object amountValue = razorpayPayment.get("amount");
@@ -247,10 +255,12 @@ public class PaymentService {
             for (com.razorpay.Payment razorpayPayment : payments) {
                 String orderId = String.valueOf(razorpayPayment.get("order_id"));
                 String status = String.valueOf(razorpayPayment.get("status"));
+                String currency = String.valueOf(razorpayPayment.get("currency"));
                 long amount = Long.parseLong(String.valueOf(razorpayPayment.get("amount")));
 
                 if (java.util.Objects.equals(payment.getGatewayOrderId(), orderId)
                         && "captured".equalsIgnoreCase(status)
+                        && "INR".equalsIgnoreCase(currency)
                         && amount == 50000L) {
                     payment.setPaymentStatus(PaymentStatus.SUCCESS);
                     payment.setSignatureVerified(true);

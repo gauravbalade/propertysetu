@@ -46,7 +46,8 @@ public class Document {
     @Column(nullable = false, length = 20)
     private DocumentStatus status;
 
-    @Column(nullable = false)
+    // Nullable for rows created before version history was introduced.
+    @Column
     private Integer versionNumber = 1;
 
     public Document() {

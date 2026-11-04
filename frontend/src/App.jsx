@@ -11,7 +11,9 @@ const MSG91_WIDGET_TOKEN = import.meta.env.VITE_MSG91_WIDGET_TOKEN?.trim() || ""
 const API = configuredApiUrl?.startsWith("http://") ||
   configuredApiUrl?.startsWith("https://")
   ? configuredApiUrl.replace(/\/+$/, "")
-  : "https://propertysetu-backend.onrender.com";
+  : import.meta.env.DEV
+    ? "http://localhost:8080"
+    : "https://propertysetu-backend.onrender.com";
 
 function App() {
   const [step, setStep] = useState("home");
@@ -49,6 +51,10 @@ function App() {
     phone: "",
     password: "",
     role: "OFFICER"
+  });
+  const [assignmentForm, setAssignmentForm] = useState({
+    officerId: "",
+    reason: "Initial officer assignment"
   });
   const [remarks, setRemarks] = useState(
     "Payment confirmed and all submitted documents were checked successfully."
@@ -168,9 +174,12 @@ function App() {
   }, [otpCooldowns]);
 
   const requiredDocumentTypes = ["IDENTITY_PROOF", "ADDRESS_PROOF", "PROPERTY_DOCUMENT"];
-  const hasRequiredDocuments = requiredDocumentTypes.every(type =>
-    uploadedDocuments.some(document => document.documentType === type)
-  );
+  const hasRequiredDocuments = requiredDocumentTypes.every(type => {
+    const latest = uploadedDocuments
+      .filter(document => document.documentType === type && document.status !== "SUPERSEDED")
+      .sort((left, right) => (right.versionNumber || 1) - (left.versionNumber || 1))[0];
+    return Boolean(latest && latest.status !== "REJECTED");
+  });
 
   async function request(url, options = {}) {
     const token = user?.token || sessionStorage.getItem("property_registration_token");
@@ -339,12 +348,14 @@ function App() {
           setProperty(currentProperty);
           setPurpose(current.purpose || "");
 
-          if (current.status === "DRAFT") {
+          if (current.status === "DRAFT" || current.status === "NEEDS_CORRECTION") {
             const documents = await request(`/api/applications/${current.id}/documents`).catch(() => []);
             setUploadedDocuments(documents || []);
             void loadAuditHistory(current.id);
             setStep("documents");
-            setMessage(`Welcome back, ${data.username}. Your application is ready to continue.`);
+            setMessage(current.status === "NEEDS_CORRECTION"
+              ? "An officer requested a document correction. Replace the rejected document version, then resubmit your application."
+              : `Welcome back, ${data.username}. Your application is ready to continue.`);
           } else if (["SUBMITTED", "PAYMENT_PENDING"].includes(current.status)) {
             const savedPayment = await request(`/api/payments/application/${current.id}`).catch(() => null);
             setPayment(savedPayment);
@@ -654,10 +665,7 @@ function App() {
         body: formData
       });
 
-      setUploadedDocuments(previous => [
-        ...previous.filter(document => document.documentType !== uploaded.documentType),
-        uploaded
-      ]);
+      setUploadedDocuments(previous => [uploaded, ...previous]);
       setFile(null);
       setMessage(`${documentType.replaceAll("_", " ")} uploaded successfully.`);
     } catch (err) {
@@ -726,8 +734,13 @@ function App() {
 
       setApplication(data);
       setPaymentDemoAcknowledged(false);
-      setMessage("Application submitted successfully.");
-      setStep("payment");
+      if (data.status === "RESUBMITTED") {
+        setMessage("Corrected documents resubmitted successfully. Your assigned officer can continue the review; no second application fee is due.");
+        setStep("paymentComplete");
+      } else {
+        setMessage("Application submitted successfully. Continue to the Razorpay Test Mode payment step.");
+        setStep("payment");
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -1438,13 +1451,47 @@ function App() {
     }
   }
 
+  async function assignOfficerToApplication(event) {
+    event.preventDefault();
+    if (!selectedApplication?.id || user?.role !== "ADMIN") return;
+    if (!assignmentForm.officerId || !assignmentForm.reason.trim()) {
+      showValidation(["Choose an active officer and provide the assignment reason."]);
+      return;
+    }
+    setBusy(true);
+    clearMessages();
+    try {
+      const updated = await request(
+        `/api/admin/applications/${selectedApplication.id}/assignment`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            officerId: Number(assignmentForm.officerId),
+            reason: assignmentForm.reason.trim()
+          })
+        }
+      );
+      setSelectedApplication(updated);
+      setApplications(previous => previous.map(item => item.id === updated.id ? updated : item));
+      setAssignmentForm(previous => ({ ...previous, officerId: String(updated.assignedOfficerId || "") }));
+      setMessage(`Application assigned to ${updated.assignedOfficerUsername || "the selected officer"}.`);
+      await loadAuditHistory(updated.id);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function openOfficerDashboard() {
     clearMessages();
     try {
       const data = await request("/api/applications");
       setApplications(data);
       setSelectedApplication(null);
+      setSelectedDocuments([]);
       setOfficerMode(true);
+      if (user?.role === "ADMIN") await loadAdminUsers();
     } catch (err) {
       setError(err.message);
     }
@@ -1500,11 +1547,11 @@ function App() {
       setPaymentDemoAcknowledged(false);
       await loadAuditHistory(selected.id);
 
-      if (selected.status === "DRAFT") {
+      if (selected.status === "DRAFT" || selected.status === "NEEDS_CORRECTION") {
         setStep("documents");
       } else if (["SUBMITTED", "PAYMENT_PENDING"].includes(selected.status)) {
         setStep("payment");
-      } else if (["PAID", "UNDER_VERIFICATION", "VERIFIED", "COMPLETED"].includes(selected.status)) {
+      } else if (["PAID", "UNDER_VERIFICATION", "RESUBMITTED", "VERIFIED", "COMPLETED", "REJECTED"].includes(selected.status)) {
         setStep("paymentComplete");
       } else {
         setStep("payment");
@@ -1997,7 +2044,7 @@ function App() {
               <div>
                 <p className="eyebrow">ADMIN USER MANAGEMENT</p>
                 <h2>Users & access control</h2>
-                <p className="muted">View every PropertySetu account stored in TiDB Cloud and update role, active status and contact-verification flags. Passwords are never displayed.</p>
+                <p className="muted">Manage applicant and officer accounts, account status and role permissions. Passwords are never displayed.</p>
               </div>
               <button type="button" className="secondary-button" onClick={loadAdminUsers} disabled={adminUsersLoading}>
                 {adminUsersLoading ? "Refreshing…" : "Refresh users"}
@@ -2021,7 +2068,7 @@ function App() {
               </div>
             </form>
 
-            {adminUsersLoading && <p className="muted">Loading user accounts from TiDB…</p>}
+            {adminUsersLoading && <p className="muted">Loading user accounts from the configured database…</p>}
             {!adminUsersLoading && adminUsers.length === 0 && <p className="muted">No user accounts found.</p>}
             {!adminUsersLoading && adminUsers.length > 0 && (
               <div className="admin-user-list">
@@ -2068,6 +2115,8 @@ function App() {
               <option value="ALL">All statuses</option>
               <option value="PAID">Paid</option>
               <option value="UNDER_VERIFICATION">Under verification</option>
+              <option value="NEEDS_CORRECTION">Needs correction</option>
+              <option value="RESUBMITTED">Resubmitted</option>
               <option value="SUBMITTED">Submitted</option>
               <option value="COMPLETED">Completed</option>
               <option value="REJECTED">Rejected</option>
@@ -2084,6 +2133,10 @@ function App() {
                 key={item.id}
                 onClick={async () => {
                   setSelectedApplication(item);
+                  setAssignmentForm(previous => ({
+                    ...previous,
+                    officerId: item.assignedOfficerId ? String(item.assignedOfficerId) : ""
+                  }));
                   await loadAuditHistory(item.id);
                   try {
                     setSelectedDocuments(await request(`/api/applications/${item.id}/documents`));
@@ -2111,6 +2164,32 @@ function App() {
                   <p><b>Purpose:</b> {selectedApplication.purpose}</p>
                   <p><b>Created:</b> {selectedApplication.createdAt ? new Date(selectedApplication.createdAt).toLocaleString("en-IN") : "-"}</p>
                 </div>
+                {user?.role === "ADMIN" && (
+                  <form className="admin-create-form" onSubmit={assignOfficerToApplication}>
+                    <p className="eyebrow">CASE ASSIGNMENT</p>
+                    <h3>Assign an officer</h3>
+                    <p className="muted">Only active OFFICER accounts can receive paid or review-stage applications. Reassignment is recorded in the audit history.</p>
+                    <div className="field-grid two">
+                      <div className="field">
+                        <label htmlFor="assigned-officer">Assigned officer</label>
+                        <select id="assigned-officer" value={assignmentForm.officerId} onChange={event => setAssignmentForm(previous => ({ ...previous, officerId: event.target.value }))} required>
+                          <option value="">Choose an officer</option>
+                          {adminUsers.filter(account => account.role === "OFFICER" && account.active).map(account => (
+                            <option key={account.id} value={account.id}>{account.username} · {account.email}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="field">
+                        <label htmlFor="assignment-reason">Assignment / reassignment reason</label>
+                        <input id="assignment-reason" value={assignmentForm.reason} onChange={event => setAssignmentForm(previous => ({ ...previous, reason: event.target.value }))} maxLength={500} required />
+                      </div>
+                    </div>
+                    <p className="muted">Current assignment: {selectedApplication.assignedOfficerUsername || "Not assigned"}</p>
+                    <button type="submit" disabled={busy || !["PAID", "UNDER_VERIFICATION", "NEEDS_CORRECTION", "RESUBMITTED"].includes(selectedApplication.status)}>
+                      {busy ? "Saving…" : selectedApplication.assignedOfficerId ? "Reassign officer" : "Assign officer"}
+                    </button>
+                  </form>
+                )}
                 <div className="officer-documents">
                   <h3>Document review</h3>
                   <p className="muted">Verify every required document before completing this application.</p>
@@ -2118,20 +2197,37 @@ function App() {
                   {selectedDocuments.map(document => (
                     <div className="officer-document-row" key={document.id}>
                       <span><b>{document.documentType.replaceAll("_", " ")}</b><small>{document.fileName}</small><button type="button" className="document-link" onClick={() => openProtectedDocument(selectedApplication.id, document.id)}>Open protected file</button></span>
-                      <select value={document.status} onChange={async event => {
-                        try {
-                          const updated = await request(`/api/applications/${selectedApplication.id}/documents/${document.id}/review?status=${event.target.value}`, { method: "POST" });
-                          setSelectedDocuments(previous => previous.map(item => item.id === updated.id ? updated : item));
-                          setMessage("Document review status updated.");
-                        } catch (err) {
-                          setError(err.message);
-                        }
-                      }}>
-                        <option value="UPLOADED">Uploaded</option>
-                        <option value="UNDER_REVIEW">Under review</option>
-                        <option value="VERIFIED">Verified</option>
-                        <option value="REJECTED">Rejected</option>
-                      </select>
+                      {user?.role === "OFFICER" ? (
+                        <select
+                          value={document.status}
+                          disabled={!["PAID", "UNDER_VERIFICATION", "RESUBMITTED"].includes(selectedApplication.status) || document.status === "SUPERSEDED"}
+                          onChange={async event => {
+                            try {
+                              const updated = await request(`/api/applications/${selectedApplication.id}/documents/${document.id}/review?status=${event.target.value}`, { method: "POST" });
+                              setSelectedDocuments(previous => previous.map(item => item.id === updated.id ? updated : item));
+                              if (updated.status === "REJECTED") {
+                                const refreshedApplications = await request("/api/applications");
+                                setApplications(refreshedApplications);
+                                const current = refreshedApplications.find(item => item.id === selectedApplication.id);
+                                if (current) setSelectedApplication(current);
+                              }
+                              setMessage(updated.status === "REJECTED"
+                                ? "Correction requested. The applicant can upload a new version."
+                                : "Document review status updated.");
+                            } catch (err) {
+                              setError(err.message);
+                            }
+                          }}
+                        >
+                          <option value="UPLOADED">Uploaded</option>
+                          <option value="UNDER_REVIEW">Under review</option>
+                          <option value="VERIFIED">Verified</option>
+                          <option value="REJECTED">Request correction</option>
+                          <option value="SUPERSEDED" disabled>Superseded version</option>
+                        </select>
+                      ) : (
+                        <span className="badge">{document.status} · v{document.versionNumber || 1}</span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -2157,17 +2253,22 @@ function App() {
                     </div>
                   )}
                 </div>
-                {selectedApplication.status !== "COMPLETED" && (
-                  <textarea value={remarks} onChange={e => setRemarks(e.target.value)} />
+                {user?.role === "OFFICER" && selectedApplication.status !== "COMPLETED" && selectedApplication.status !== "REJECTED" && (
+                  <>
+                    <label htmlFor="officer-remarks">Review remarks (required for a decision)</label>
+                    <textarea id="officer-remarks" value={remarks} onChange={e => setRemarks(e.target.value)} maxLength={2000} />
+                    <div className="action-row">
+                      <button onClick={() => verifySelected("VERIFIED")} disabled={!remarks.trim() || !["IDENTITY_PROOF", "ADDRESS_PROOF", "PROPERTY_DOCUMENT"].every(type => selectedDocuments.some(document => document.documentType === type && document.status === "VERIFIED" && document.status !== "SUPERSEDED"))}>Complete verification</button>
+                      <button className="reject-button" onClick={() => verifySelected("REJECTED")} disabled={!remarks.trim()}>Reject application</button>
+                    </div>
+                  </>
                 )}
-                {selectedApplication.status === "COMPLETED" ? (
+                {user?.role === "ADMIN" && (
+                  <div className="message">Administration can assign and monitor cases. Document decisions must be made by the assigned officer.</div>
+                )}
+                {selectedApplication.status === "COMPLETED" && (
                   <div className="message success">
-                    This application is already completed and does not need further verification.
-                  </div>
-                ) : (
-                  <div className="action-row">
-                    <button onClick={() => verifySelected("VERIFIED")} disabled={!selectedDocuments.length || !["IDENTITY_PROOF", "ADDRESS_PROOF", "PROPERTY_DOCUMENT"].every(type => selectedDocuments.some(document => document.documentType === type && document.status === "VERIFIED"))}>Verify application</button>
-                    <button className="reject-button" onClick={() => verifySelected("REJECTED")}>Reject</button>
+                    Academic workflow completed. This is not an official government registration certificate.
                   </div>
                 )}
               </>

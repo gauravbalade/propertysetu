@@ -8,12 +8,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,6 +24,8 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.gaurav.property.entity.UserAccount;
+import com.gaurav.property.repository.UserAccountRepository;
 import com.gaurav.property.security.JwtService;
 
 import jakarta.servlet.FilterChain;
@@ -55,85 +57,67 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+        List<String> allowedOrigins = new ArrayList<>();
 
-        List<String> allowedOrigins = new ArrayList<>(List.of(
-                frontendOrigin,
-                "https://frontend-six-amber-63.vercel.app",
-                "http://localhost:5173"
-        ));
+        addOrigin(allowedOrigins, frontendOrigin);
+        addOrigin(allowedOrigins, "http://localhost:5173");
 
         if (additionalFrontendOrigins != null && !additionalFrontendOrigins.isBlank()) {
             for (String origin : additionalFrontendOrigins.split(",")) {
-                String normalized = origin.trim();
-                if (!normalized.isBlank() && !allowedOrigins.contains(normalized)) {
-                    allowedOrigins.add(normalized);
-                }
+                addOrigin(allowedOrigins, origin);
             }
         }
 
-        // Vercel creates multiple deployment aliases. Allow the project's Vercel
-        // origins without having to hard-code every preview URL.
-        configuration.setAllowedOriginPatterns(List.of(
-                "https://*.vercel.app",
-                "http://localhost:[*]",
-                frontendOrigin
-        ));
+        // Exact origin allow-list: no wildcard preview hosts in the API policy.
         configuration.setAllowedOrigins(allowedOrigins);
-
-        configuration.setAllowedMethods(List.of(
-                "GET",
-                "POST",
-                "PUT",
-                "DELETE",
-                "OPTIONS"
-        ));
-
-        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Razorpay-Signature"));
+        configuration.setExposedHeaders(List.of("Content-Disposition"));
         configuration.setAllowCredentials(false);
+        configuration.setMaxAge(3600L);
 
-        UrlBasedCorsConfigurationSource source =
-                new UrlBasedCorsConfigurationSource();
-
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
-
         return source;
+    }
+
+    private void addOrigin(List<String> origins, String value) {
+        if (value == null) return;
+        String origin = value.trim().replaceAll("/+$", "");
+        if (!origin.isBlank() && !origins.contains(origin)) {
+            origins.add(origin);
+        }
     }
 
     @Bean
     public OncePerRequestFilter jwtAuthenticationFilter(
-            JwtService jwtService) {
+            JwtService jwtService,
+            UserAccountRepository userAccountRepository) {
 
         return new OncePerRequestFilter() {
-
             @Override
             protected void doFilterInternal(
                     HttpServletRequest request,
                     HttpServletResponse response,
-                    FilterChain filterChain)
-                    throws ServletException, IOException {
+                    FilterChain filterChain) throws ServletException, IOException {
 
                 String header = request.getHeader("Authorization");
-
                 if (header != null && header.startsWith("Bearer ")) {
                     try {
-                        String token = header.substring(7);
-
-                        var claims = jwtService.parseToken(token);
+                        var claims = jwtService.parseToken(header.substring(7));
                         String username = claims.getSubject();
-                        String role = claims.get("role", String.class);
+
+                        // The database is authoritative for role and account state.
+                        // A stale JWT cannot retain access after role changes or deactivation.
+                        UserAccount account = userAccountRepository.findByUsername(username)
+                                .filter(user -> Boolean.TRUE.equals(user.getActive()))
+                                .orElseThrow(() -> new IllegalArgumentException("Account is inactive or missing"));
 
                         var authorities = List.of(
-                                new SimpleGrantedAuthority("ROLE_" + role));
-
-                        var authentication =
-                                new UsernamePasswordAuthenticationToken(
-                                        username,
-                                        null,
-                                        authorities);
-
-                        SecurityContextHolder.getContext()
-                                .setAuthentication(authentication);
-
+                                new SimpleGrantedAuthority("ROLE_" + account.getRole().name()));
+                        var authentication = new UsernamePasswordAuthenticationToken(
+                                account.getUsername(), null, authorities);
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
                     } catch (Exception ignored) {
                         SecurityContextHolder.clearContext();
                     }
@@ -147,70 +131,44 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            OncePerRequestFilter jwtAuthenticationFilter)
-            throws Exception {
+            OncePerRequestFilter jwtAuthenticationFilter) throws Exception {
 
         http
             .csrf(csrf -> csrf.disable())
-
-            .cors(cors -> cors.configurationSource(
-                    corsConfigurationSource()))
-
-            .sessionManagement(session -> session
-                    .sessionCreationPolicy(
-                            SessionCreationPolicy.STATELESS))
-
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-
-                    .requestMatchers(
-                            "/api/auth/register",
-                            "/api/auth/login",
-                            "/api/auth/verify-msg91-token",
-                            "/api/auth/demo-otp/**",
-                            "/api/auth/verify-otp",
-                            "/api/auth/resend-otp",
-                            "/api/auth/forgot-password",
-                            "/api/auth/reset-password",
-                            "/api/payments/webhook/razorpay",
-                            "/api/health",
-                            "/",
-                            "/error")
-                    .permitAll()
-
-                    .requestMatchers(
-                            "/api/admin/**")
-                    .hasRole("ADMIN")
-
-                    .requestMatchers(
-                            "/api/applications",
-                            "/api/applications/**",
-                            "/api/payments/**",
-                            "/api/owners/**",
-                            "/api/properties/**",
-                            "/api/locations/**",
-                            "/api/documents/**")
-                    .hasAnyRole(
-                            "APPLICANT",
-                            "OFFICER",
-                            "ADMIN")
-
-                    .requestMatchers(
-                            "/api/verifications/**",
-                            "/api/audit/**")
-                    .hasAnyRole(
-                            "OFFICER",
-                            "ADMIN")
-
-                    .anyRequest()
-                    .authenticated())
-
+                .requestMatchers(
+                    "/api/auth/register",
+                    "/api/auth/login",
+                    "/api/auth/verify-msg91-token",
+                    "/api/auth/demo-otp/**",
+                    "/api/auth/verify-otp",
+                    "/api/auth/resend-otp",
+                    "/api/auth/forgot-password",
+                    "/api/auth/reset-password",
+                    "/api/payments/webhook/razorpay",
+                    "/api/health",
+                    "/",
+                    "/error"
+                ).permitAll()
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .requestMatchers(
+                    "/api/applications",
+                    "/api/applications/**",
+                    "/api/payments/**",
+                    "/api/owners/**",
+                    "/api/properties/**",
+                    "/api/locations/**",
+                    "/api/documents/**"
+                ).hasAnyRole("APPLICANT", "OFFICER", "ADMIN")
+                .requestMatchers("/api/verifications/**").hasRole("OFFICER")
+                .requestMatchers("/api/audit/**").hasAnyRole("APPLICANT", "OFFICER", "ADMIN")
+                .anyRequest().authenticated())
             .httpBasic(basic -> basic.disable())
             .formLogin(form -> form.disable())
             .logout(logout -> logout.disable())
-
-            .addFilterBefore(
-                    jwtAuthenticationFilter,
-                    UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
