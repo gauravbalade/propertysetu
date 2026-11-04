@@ -2202,14 +2202,27 @@ function App() {
                   {selectedDocuments.length === 0 && <p className="muted">No documents uploaded.</p>}
                   {selectedDocuments.map(document => (
                     <div className="officer-document-row" key={document.id}>
-                      <span><b>{document.documentType.replaceAll("_", " ")}</b><small>{document.fileName}</small><button type="button" className="document-link" onClick={() => openProtectedDocument(selectedApplication.id, document.id)}>Open protected file</button></span>
+                      <span>
+                        <b>{document.documentType.replaceAll("_", " ")} · v{document.versionNumber || 1}</b>
+                        <small>{document.fileName}</small>
+                        {document.reviewRemarks && <small>Review note ({document.reviewedByUsername || "Officer"}): {document.reviewRemarks}</small>}
+                        {document.reviewedAt && <small>Reviewed {new Date(document.reviewedAt).toLocaleString("en-IN")}</small>}
+                        <button type="button" className="document-link" onClick={() => openProtectedDocument(selectedApplication.id, document.id)}>Open protected file</button>
+                      </span>
                       {user?.role === "OFFICER" ? (
                         <select
                           value={document.status}
                           disabled={!["PAID", "UNDER_VERIFICATION", "RESUBMITTED"].includes(selectedApplication.status) || document.status === "SUPERSEDED"}
                           onChange={async event => {
+                            const nextStatus = event.target.value;
+                            if (nextStatus === "REJECTED" && !remarks.trim()) {
+                              setError("Enter a clear correction reason in Officer review remarks before rejecting this document.");
+                              return;
+                            }
                             try {
-                              const updated = await request(`/api/applications/${selectedApplication.id}/documents/${document.id}/review?status=${event.target.value}`, { method: "POST" });
+                              const query = new URLSearchParams({ status: nextStatus });
+                              if (remarks.trim()) query.set("remarks", remarks.trim());
+                              const updated = await request(`/api/applications/${selectedApplication.id}/documents/${document.id}/review?${query.toString()}`, { method: "POST" });
                               setSelectedDocuments(previous => previous.map(item => item.id === updated.id ? updated : item));
                               if (updated.status === "REJECTED") {
                                 const refreshedApplications = await request("/api/applications");
@@ -2259,15 +2272,20 @@ function App() {
                     </div>
                   )}
                 </div>
-                {user?.role === "OFFICER" && selectedApplication.status !== "COMPLETED" && selectedApplication.status !== "REJECTED" && (
+                {user?.role === "OFFICER" && ["PAID", "UNDER_VERIFICATION", "RESUBMITTED"].includes(selectedApplication.status) && (
                   <>
-                    <label htmlFor="officer-remarks">Review remarks (required for a decision)</label>
-                    <textarea id="officer-remarks" value={remarks} onChange={e => setRemarks(e.target.value)} maxLength={2000} />
+                    <label htmlFor="officer-remarks">Officer review remarks / correction reason</label>
+                    <textarea id="officer-remarks" value={remarks} onChange={e => setRemarks(e.target.value)} maxLength={2000} placeholder="Explain the decision or identify the exact correction required." />
                     <div className="action-row">
-                      <button onClick={() => verifySelected("VERIFIED")} disabled={!remarks.trim() || !["IDENTITY_PROOF", "ADDRESS_PROOF", "PROPERTY_DOCUMENT"].every(type => selectedDocuments.some(document => document.documentType === type && document.status === "VERIFIED" && document.status !== "SUPERSEDED"))}>Complete verification</button>
+                      <button onClick={() => verifySelected("VERIFIED")} disabled={!remarks.trim() || !["IDENTITY_PROOF", "ADDRESS_PROOF", "PROPERTY_DOCUMENT"].every(type => selectedDocuments.some(document => document.documentType === type && document.status === "VERIFIED"))}>Complete verification</button>
                       <button className="reject-button" onClick={() => verifySelected("REJECTED")} disabled={!remarks.trim()}>Reject application</button>
                     </div>
                   </>
+                )}
+                {user?.role === "OFFICER" && selectedApplication.status === "NEEDS_CORRECTION" && (
+                  <div className="message">
+                    Waiting for the applicant to replace the rejected document version and resubmit. Refresh applications after the applicant resubmits.
+                  </div>
                 )}
                 {user?.role === "ADMIN" && (
                   <div className="message">Administration can assign and monitor cases. Document decisions must be made by the assigned officer.</div>
@@ -2626,6 +2644,8 @@ function App() {
                     <div>
                       <strong>{document.fileName}</strong>
                       <small>{document.documentType.replaceAll("_", " ")} · v{document.versionNumber || 1} · {document.status}</small>
+                      {document.reviewRemarks && <small>Officer note: {document.reviewRemarks}</small>}
+                      {document.reviewedAt && <small>Reviewed {new Date(document.reviewedAt).toLocaleString("en-IN")}</small>}
                     </div>
                     <div className="document-row-actions">
                       <button type="button" className="secondary-button" onClick={() => openProtectedDocument(application.id, document.id)}>View</button>

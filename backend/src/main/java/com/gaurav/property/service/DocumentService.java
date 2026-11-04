@@ -87,9 +87,9 @@ public class DocumentService {
                 .orElseThrow(() -> new RuntimeException("Application not found"));
         authorizationService.requireOwner(application.getUserAccount());
 
-        boolean draft = application.getStatus() == ApplicationStatus.DRAFT;
+        boolean draft = ApplicationWorkflowPolicy.canEditDraft(application.getStatus());
         boolean correction = application.getStatus() == ApplicationStatus.NEEDS_CORRECTION;
-        if (!draft && !correction) {
+        if (!ApplicationWorkflowPolicy.canUploadDocuments(application.getStatus())) {
             throw new RuntimeException("Documents can only be uploaded for a draft or a correction-requested application.");
         }
 
@@ -165,10 +165,18 @@ public class DocumentService {
     }
 
     @Transactional
-    public DocumentResponse reviewDocument(Long applicationId, Long documentId, DocumentStatus status) {
+    public DocumentResponse reviewDocument(
+            Long applicationId, Long documentId, DocumentStatus status, String remarks) {
         if (status != DocumentStatus.VERIFIED && status != DocumentStatus.REJECTED
                 && status != DocumentStatus.UNDER_REVIEW) {
             throw new RuntimeException("Choose VERIFIED, REJECTED or UNDER_REVIEW");
+        }
+        String reviewRemarks = remarks == null ? "" : remarks.trim();
+        if (status == DocumentStatus.REJECTED && reviewRemarks.isBlank()) {
+            throw new RuntimeException("A clear correction reason is required when rejecting a document.");
+        }
+        if (reviewRemarks.length() > 2000) {
+            throw new RuntimeException("Review remarks cannot exceed 2000 characters.");
         }
         RegistrationApplication application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new RuntimeException("Application not found"));
@@ -182,13 +190,14 @@ public class DocumentService {
         if (document.getStatus() == DocumentStatus.SUPERSEDED) {
             throw new RuntimeException("A superseded document version cannot be reviewed.");
         }
-        if (application.getStatus() != ApplicationStatus.PAID
-                && application.getStatus() != ApplicationStatus.UNDER_VERIFICATION
-                && application.getStatus() != ApplicationStatus.RESUBMITTED) {
+        if (!ApplicationWorkflowPolicy.canReviewDocuments(application.getStatus())) {
             throw new RuntimeException("This application is not currently open for document review.");
         }
 
         document.setStatus(status);
+        document.setReviewRemarks(reviewRemarks.isBlank() ? null : reviewRemarks);
+        document.setReviewedByUsername(authorizationService.currentUser().getUsername());
+        document.setReviewedAt(LocalDateTime.now());
         Document saved = documentRepository.save(document);
 
         if (status == DocumentStatus.REJECTED) {
@@ -199,14 +208,16 @@ public class DocumentService {
                     application.getApplicationNumber(),
                     application.getProperty().getPropertyNumber(),
                     application.getStatus().name(),
-                    "A document needs correction. Open your application history to read the review reason, replace the rejected document, and resubmit.");
+                    "A document needs correction: " + reviewRemarks
+                            + " Open your application history to read the review reason, replace the rejected document, and resubmit.");
         }
 
         auditService.record("DOCUMENT_REVIEWED", "DOCUMENT", documentId,
                 authorizationService.currentUser(), "Status changed to " + status.name());
         auditService.record(status == DocumentStatus.REJECTED ? "CORRECTION_REQUESTED" : "DOCUMENT_STATUS_CHANGED",
                 "APPLICATION", applicationId, authorizationService.currentUser(),
-                normalizedDocumentType(document.getDocumentType()) + " document marked " + status.name());
+                normalizedDocumentType(document.getDocumentType()) + " document marked " + status.name()
+                        + (reviewRemarks.isBlank() ? "" : ". Reviewer remarks: " + reviewRemarks));
         return toResponse(saved);
     }
 
@@ -301,7 +312,8 @@ public class DocumentService {
     private DocumentResponse toResponse(Document document) {
         return new DocumentResponse(document.getId(), document.getApplication().getId(),
                 document.getDocumentType(), document.getFileName(), document.getUploadDate(),
-                document.getStatus(), document.getVersionNumber());
+                document.getStatus(), document.getVersionNumber(), document.getReviewRemarks(),
+                document.getReviewedByUsername(), document.getReviewedAt());
     }
 
     public record DocumentDownload(Resource resource, String fileName, String contentType) {

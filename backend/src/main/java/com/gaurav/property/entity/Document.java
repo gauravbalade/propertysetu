@@ -50,6 +50,14 @@ public class Document {
     @Column
     private Integer versionNumber = 1;
 
+    @Column(length = 2000)
+    private String reviewRemarks;
+
+    @Column(length = 50)
+    private String reviewedByUsername;
+
+    private LocalDateTime reviewedAt;
+
     public Document() {
     }
 
@@ -69,4 +77,10 @@ public class Document {
     public void setStatus(DocumentStatus status) { this.status = status; }
     public Integer getVersionNumber() { return versionNumber; }
     public void setVersionNumber(Integer versionNumber) { this.versionNumber = versionNumber; }
+    public String getReviewRemarks() { return reviewRemarks; }
+    public void setReviewRemarks(String reviewRemarks) { this.reviewRemarks = reviewRemarks; }
+    public String getReviewedByUsername() { return reviewedByUsername; }
+    public void setReviewedByUsername(String reviewedByUsername) { this.reviewedByUsername = reviewedByUsername; }
+    public LocalDateTime getReviewedAt() { return reviewedAt; }
+    public void setReviewedAt(LocalDateTime reviewedAt) { this.reviewedAt = reviewedAt; }
 }

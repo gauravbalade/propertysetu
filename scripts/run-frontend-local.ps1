@@ -11,10 +11,10 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue) -or -not (Get-Command 
 if (Test-Path $envFile) {
     Get-Content $envFile | ForEach-Object {
         $line = $_.Trim()
-        if (-not $line -or $line.StartsWith("#") -or -not $line.Contains("=")) { return }
-        $parts = $line.Split("=", 2)
-        $name = $parts[0].Trim()
-        $value = $parts[1].Trim()
+        $separatorIndex = $line.IndexOf("=")
+        if (-not $line -or $line.StartsWith("#") -or $separatorIndex -le 0) { return }
+        $name = $line.Substring(0, $separatorIndex).Trim()
+        $value = $line.Substring($separatorIndex + 1).Trim()
         if ($name -match '^VITE_[A-Za-z0-9_]+$' -and [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
             Set-Item -Path "Env:$name" -Value $value
         }

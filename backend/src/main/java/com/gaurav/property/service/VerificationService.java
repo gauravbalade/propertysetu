@@ -65,10 +65,7 @@ public class VerificationService {
             throw new RuntimeException("The authenticated officer must verify the application");
         }
 
-        ApplicationStatus currentStatus = application.getStatus();
-        if (currentStatus != ApplicationStatus.PAID
-                && currentStatus != ApplicationStatus.UNDER_VERIFICATION
-                && currentStatus != ApplicationStatus.RESUBMITTED) {
+        if (!ApplicationWorkflowPolicy.canVerifyApplication(application.getStatus())) {
             throw new RuntimeException("Only paid or resubmitted applications can be verified.");
         }
 

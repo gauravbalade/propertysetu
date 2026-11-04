@@ -77,9 +77,10 @@ public class DocumentController {
     public ResponseEntity<DocumentResponse> reviewDocument(
             @PathVariable Long applicationId,
             @PathVariable Long documentId,
-            @RequestParam DocumentStatus status) {
+            @RequestParam DocumentStatus status,
+            @RequestParam(required = false) String remarks) {
 
         return ResponseEntity.ok(documentService.reviewDocument(
-                applicationId, documentId, status));
+                applicationId, documentId, status, remarks));
     }
 }

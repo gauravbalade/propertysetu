@@ -132,10 +132,7 @@ public class ApplicationService {
         var admin = authorizationService.requireAdmin();
         RegistrationApplication application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new RuntimeException("Application not found"));
-        if (application.getStatus() != ApplicationStatus.PAID
-                && application.getStatus() != ApplicationStatus.UNDER_VERIFICATION
-                && application.getStatus() != ApplicationStatus.NEEDS_CORRECTION
-                && application.getStatus() != ApplicationStatus.RESUBMITTED) {
+        if (!ApplicationWorkflowPolicy.canAssignOfficer(application.getStatus())) {
             throw new RuntimeException("Only paid or review-stage applications can be assigned to an officer.");
         }
         UserAccount officer = userAccountRepository.findById(request.getOfficerId())
@@ -205,11 +202,10 @@ public class ApplicationService {
                 .orElseThrow(() -> new RuntimeException("Application not found"));
         authorizationService.requireOwner(application.getUserAccount());
 
-        boolean draft = application.getStatus() == ApplicationStatus.DRAFT;
-        boolean correction = application.getStatus() == ApplicationStatus.NEEDS_CORRECTION;
-        if (!draft && !correction) {
+        if (!ApplicationWorkflowPolicy.canSubmit(application.getStatus())) {
             throw new RuntimeException("Only a draft or a correction-requested application can be submitted.");
         }
+        boolean correction = application.getStatus() == ApplicationStatus.NEEDS_CORRECTION;
 
         java.util.Map<String, com.gaurav.property.entity.Document> latestByType = new java.util.HashMap<>();
         for (var document : documentRepository.findByApplicationId(applicationId)) {
@@ -235,9 +231,7 @@ public class ApplicationService {
                     + String.join(", ", missingTypes));
         }
 
-        ApplicationStatus nextStatus = correction
-                ? ApplicationStatus.RESUBMITTED : ApplicationStatus.SUBMITTED;
-        application.setStatus(nextStatus);
+        application.setStatus(ApplicationWorkflowPolicy.submissionTarget(application.getStatus()));
         RegistrationApplication saved = applicationRepository.save(application);
         auditService.record(correction ? "APPLICATION_RESUBMITTED" : "APPLICATION_SUBMITTED",
                 "APPLICATION", applicationId, authorizationService.currentUser(),

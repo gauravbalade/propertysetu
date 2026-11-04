@@ -11,5 +11,8 @@ public record DocumentResponse(
         String fileName,
         LocalDateTime uploadDate,
         DocumentStatus status,
-        Integer versionNumber) {
+        Integer versionNumber,
+        String reviewRemarks,
+        String reviewedByUsername,
+        LocalDateTime reviewedAt) {
 }
