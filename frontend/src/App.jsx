@@ -174,12 +174,14 @@ function App() {
   }, [otpCooldowns]);
 
   const requiredDocumentTypes = ["IDENTITY_PROOF", "ADDRESS_PROOF", "PROPERTY_DOCUMENT"];
-  const hasRequiredDocuments = requiredDocumentTypes.every(type => {
-    const latest = uploadedDocuments
-      .filter(document => document.documentType === type && document.status !== "SUPERSEDED")
-      .sort((left, right) => (right.versionNumber || 1) - (left.versionNumber || 1))[0];
-    return Boolean(latest && latest.status !== "REJECTED");
-  });
+  const latestDocumentForType = type => uploadedDocuments
+    .filter(document => document.documentType === type)
+    .sort((left, right) => (right.versionNumber || 1) - (left.versionNumber || 1))[0] || null;
+  const readyDocumentTypesCount = requiredDocumentTypes.filter(type => {
+    const latest = latestDocumentForType(type);
+    return Boolean(latest && latest.status !== "REJECTED" && latest.status !== "SUPERSEDED");
+  }).length;
+  const hasRequiredDocuments = readyDocumentTypesCount === requiredDocumentTypes.length;
 
   async function request(url, options = {}) {
     const token = user?.token || sessionStorage.getItem("property_registration_token");
@@ -351,10 +353,14 @@ function App() {
           if (current.status === "DRAFT" || current.status === "NEEDS_CORRECTION") {
             const documents = await request(`/api/applications/${current.id}/documents`).catch(() => []);
             setUploadedDocuments(documents || []);
+            if (current.status === "NEEDS_CORRECTION") {
+              const savedPayment = await request(`/api/payments/application/${current.id}`).catch(() => null);
+              setPayment(savedPayment);
+            }
             void loadAuditHistory(current.id);
             setStep("documents");
             setMessage(current.status === "NEEDS_CORRECTION"
-              ? "An officer requested a document correction. Replace the rejected document version, then resubmit your application."
+              ? "An officer requested a document correction. Replace the rejected document version, then resubmit your application. Your confirmed payment remains valid."
               : `Welcome back, ${data.username}. Your application is ready to continue.`);
           } else if (["SUBMITTED", "PAYMENT_PENDING"].includes(current.status)) {
             const savedPayment = await request(`/api/payments/application/${current.id}`).catch(() => null);
@@ -2605,7 +2611,7 @@ function App() {
               onChange={e => setFile(e.target.files[0])} />
             {file && <div className="file-selected">Selected: {file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB</div>}
             <button type="submit" disabled={busy}>{busy ? "Uploading…" : "Upload document for review"}</button>
-            <p className="document-progress"><b>{uploadedDocuments.length}/3 required categories complete</b> · You may replace a file by uploading again under the same category.</p>
+            <p className="document-progress"><b>{readyDocumentTypesCount}/3 required categories complete</b> · Replacements create a new version and keep earlier versions in the record.</p>
             {uploadedDocuments.length > 0 && (
               <div className="uploaded-document-list">
                 <div className="timeline-heading">
@@ -2619,11 +2625,11 @@ function App() {
                   <div className="uploaded-document-row" key={document.id}>
                     <div>
                       <strong>{document.fileName}</strong>
-                      <small>{document.documentType.replaceAll("_", " ")} · {document.status}</small>
+                      <small>{document.documentType.replaceAll("_", " ")} · v{document.versionNumber || 1} · {document.status}</small>
                     </div>
                     <div className="document-row-actions">
                       <button type="button" className="secondary-button" onClick={() => openProtectedDocument(application.id, document.id)}>View</button>
-                      {application.status === "DRAFT" && (
+                      {application.status === "DRAFT" && document.status !== "SUPERSEDED" && (
                         <button type="button" className="link-button danger-link" onClick={() => deleteDocument(document.id)} disabled={busy}>Remove</button>
                       )}
                     </div>
@@ -2633,11 +2639,12 @@ function App() {
             )}
 
             <div className="checklist-table">
-              {["IDENTITY_PROOF", "ADDRESS_PROOF", "PROPERTY_DOCUMENT"].map(requiredType => {
-                const uploaded = uploadedDocuments.some(document => document.documentType === requiredType);
+              {requiredDocumentTypes.map(requiredType => {
+                const latest = latestDocumentForType(requiredType);
+                const uploaded = Boolean(latest && latest.status !== "REJECTED" && latest.status !== "SUPERSEDED");
                 return <div key={requiredType} className={uploaded ? "checklist-row uploaded" : "checklist-row"}>
-                  <span><b>{requiredType.replaceAll("_", " ")}</b><small>Required for demo submission</small></span>
-                  <strong>{uploaded ? "Uploaded" : "Required"}</strong>
+                  <span><b>{requiredType.replaceAll("_", " ")}</b><small>{latest ? `Latest version: v${latest.versionNumber || 1} · ${latest.status}` : "Required for demo submission"}</small></span>
+                  <strong>{uploaded ? "Ready" : latest?.status === "REJECTED" ? "Correction required" : "Required"}</strong>
                 </div>;
               })}
             </div>
@@ -2732,10 +2739,14 @@ function App() {
         {step === "paymentComplete" && (
           <div className="complete">
             <div className="check">✓</div>
-            <h2>Application payment recorded</h2>
-            <p>Your test-mode payment has been confirmed. The application is now available for the existing officer-review workflow.</p>
+            <h2>{application?.status === "RESUBMITTED" ? "Corrected documents resubmitted" : application?.status === "COMPLETED" ? "Academic workflow completed" : "Application payment recorded"}</h2>
+            <p>{application?.status === "RESUBMITTED"
+              ? "Your corrected documents are back with the assigned officer. Your earlier successful payment remains valid; no second application fee is due."
+              : application?.status === "COMPLETED"
+                ? "The assigned officer has completed the academic verification workflow. This is not an official government registration."
+                : "Your test-mode payment has been confirmed. The application is available to the assigned officer for review."}</p>
             <p className="application-number">{application?.applicationNumber}</p>
-            <span className="badge">PAID</span>
+            <span className="badge">{application?.status || "PAID"}</span>
             <div className="summary payment-summary">
               <p><b>Amount:</b> ₹{Number(payment?.amount || 0).toFixed(2)}</p>
               <p><b>Payment status:</b> {payment?.paymentStatus}</p>

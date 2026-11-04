@@ -101,8 +101,9 @@ public class DocumentService {
             throw new RuntimeException("Only a document specifically marked for correction can be replaced.");
         }
 
-        int nextVersion = previous == null || previous.getVersionNumber() == null
-                ? 1 : previous.getVersionNumber() + 1;
+        int nextVersion = previous == null
+                ? 1
+                : (previous.getVersionNumber() == null ? 2 : previous.getVersionNumber() + 1);
 
         Path uploadPath = Paths.get(uploadDirectory).toAbsolutePath().normalize();
         Files.createDirectories(uploadPath);
@@ -119,6 +120,9 @@ public class DocumentService {
 
         try {
             if (previous != null && previous.getStatus() != DocumentStatus.SUPERSEDED) {
+                if (previous.getVersionNumber() == null) {
+                    previous.setVersionNumber(1);
+                }
                 previous.setStatus(DocumentStatus.SUPERSEDED);
                 documentRepository.save(previous);
             }
