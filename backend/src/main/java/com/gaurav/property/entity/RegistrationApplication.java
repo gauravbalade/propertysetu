@@ -9,6 +9,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -16,17 +17,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
 @Entity
 @Table(name = "registration_applications")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
 public class RegistrationApplication {
 
     @Id
@@ -36,11 +28,11 @@ public class RegistrationApplication {
     @Column(nullable = false, unique = true, length = 40)
     private String applicationNumber;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private UserAccount userAccount;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "property_id", nullable = false)
     private Property property;
 
@@ -57,70 +49,39 @@ public class RegistrationApplication {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_officer_id")
+    private UserAccount assignedOfficer;
 
+    @Column(name = "assigned_at")
+    private LocalDateTime assignedAt;
 
-    public Long getId() {
-        return this.id;
+    @Column(name = "assigned_by_username", length = 50)
+    private String assignedByUsername;
+
+    public RegistrationApplication() {
     }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getApplicationNumber() {
-        return this.applicationNumber;
-    }
-
-    public void setApplicationNumber(String applicationNumber) {
-        this.applicationNumber = applicationNumber;
-    }
-
-    public UserAccount getUserAccount() {
-        return this.userAccount;
-    }
-
-    public void setUserAccount(UserAccount userAccount) {
-        this.userAccount = userAccount;
-    }
-
-    public Property getProperty() {
-        return this.property;
-    }
-
-    public void setProperty(Property property) {
-        this.property = property;
-    }
-
-    public LocalDate getApplicationDate() {
-        return this.applicationDate;
-    }
-
-    public void setApplicationDate(LocalDate applicationDate) {
-        this.applicationDate = applicationDate;
-    }
-
-    public String getPurpose() {
-        return this.purpose;
-    }
-
-    public void setPurpose(String purpose) {
-        this.purpose = purpose;
-    }
-
-    public ApplicationStatus getStatus() {
-        return this.status;
-    }
-
-    public void setStatus(ApplicationStatus status) {
-        this.status = status;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return this.createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getApplicationNumber() { return applicationNumber; }
+    public void setApplicationNumber(String applicationNumber) { this.applicationNumber = applicationNumber; }
+    public UserAccount getUserAccount() { return userAccount; }
+    public void setUserAccount(UserAccount userAccount) { this.userAccount = userAccount; }
+    public Property getProperty() { return property; }
+    public void setProperty(Property property) { this.property = property; }
+    public LocalDate getApplicationDate() { return applicationDate; }
+    public void setApplicationDate(LocalDate applicationDate) { this.applicationDate = applicationDate; }
+    public String getPurpose() { return purpose; }
+    public void setPurpose(String purpose) { this.purpose = purpose; }
+    public ApplicationStatus getStatus() { return status; }
+    public void setStatus(ApplicationStatus status) { this.status = status; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public UserAccount getAssignedOfficer() { return assignedOfficer; }
+    public void setAssignedOfficer(UserAccount assignedOfficer) { this.assignedOfficer = assignedOfficer; }
+    public LocalDateTime getAssignedAt() { return assignedAt; }
+    public void setAssignedAt(LocalDateTime assignedAt) { this.assignedAt = assignedAt; }
+    public String getAssignedByUsername() { return assignedByUsername; }
+    public void setAssignedByUsername(String assignedByUsername) { this.assignedByUsername = assignedByUsername; }
 }

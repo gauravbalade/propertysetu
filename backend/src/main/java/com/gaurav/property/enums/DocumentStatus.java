@@ -4,5 +4,6 @@ public enum DocumentStatus {
     UPLOADED,
     UNDER_REVIEW,
     VERIFIED,
-    REJECTED
+    REJECTED,
+    SUPERSEDED
 }

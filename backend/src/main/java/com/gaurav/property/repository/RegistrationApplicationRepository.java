@@ -15,6 +15,8 @@ public interface RegistrationApplicationRepository
 
     List<RegistrationApplication> findByUserAccountId(Long userId);
 
+    List<RegistrationApplication> findByAssignedOfficerId(Long officerId);
+
     List<RegistrationApplication> findByStatus(ApplicationStatus status);
 
     List<RegistrationApplication> findByPropertyId(Long propertyId);

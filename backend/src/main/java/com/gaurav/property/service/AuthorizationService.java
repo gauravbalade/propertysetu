@@ -4,6 +4,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import com.gaurav.property.entity.RegistrationApplication;
 import com.gaurav.property.entity.UserAccount;
 import com.gaurav.property.enums.UserRole;
 import com.gaurav.property.repository.UserAccountRepository;
@@ -19,40 +20,75 @@ public class AuthorizationService {
 
     public UserAccount currentUser() {
         Authentication authentication = authentication();
-        return userAccountRepository.findByUsername(authentication.getName())
+        UserAccount user = userAccountRepository.findByUsername(authentication.getName())
                 .orElseThrow(() -> new RuntimeException("Authenticated user not found"));
+        if (!Boolean.TRUE.equals(user.getActive())) {
+            SecurityContextHolder.clearContext();
+            throw new RuntimeException("Your account is inactive. Contact the administrator.");
+        }
+        return user;
     }
 
     public void requireOfficer() {
-        Authentication authentication = authentication();
-        boolean officer = authentication.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_" + UserRole.OFFICER.name())
-                        || a.getAuthority().equals("ROLE_" + UserRole.ADMIN.name()));
-        if (!officer) {
+        if (currentUser().getRole() != UserRole.OFFICER) {
             throw new RuntimeException("Officer access is required");
         }
     }
 
     public UserAccount requireAdmin() {
-        Authentication authentication = authentication();
-        boolean admin = authentication.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_" + UserRole.ADMIN.name()));
-        if (!admin) {
+        UserAccount user = currentUser();
+        if (user.getRole() != UserRole.ADMIN) {
             throw new RuntimeException("Admin access is required");
         }
-        return currentUser();
+        return user;
     }
 
     public boolean isOfficer() {
-        Authentication authentication = authentication();
-        return authentication.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_" + UserRole.OFFICER.name())
-                        || a.getAuthority().equals("ROLE_" + UserRole.ADMIN.name()));
+        return currentUser().getRole() == UserRole.OFFICER;
     }
 
+    public boolean isAdmin() {
+        return currentUser().getRole() == UserRole.ADMIN;
+    }
+
+    /** Applicant-only ownership check. Staff access is checked separately per case. */
     public void requireOwner(UserAccount owner) {
-        if (owner == null || (!isOfficer() && !owner.getUsername().equals(currentUser().getUsername()))) {
-            throw new RuntimeException("You are not allowed to access this resource");
+        UserAccount actor = currentUser();
+        if (actor.getRole() != UserRole.APPLICANT || owner == null
+                || owner.getId() == null || !owner.getId().equals(actor.getId())) {
+            throw new RuntimeException("You are not allowed to access this applicant resource");
+        }
+    }
+
+    public void requireAssignedOfficer(RegistrationApplication application) {
+        UserAccount actor = currentUser();
+        if (actor.getRole() != UserRole.OFFICER) {
+            throw new RuntimeException("Only an officer can perform this review action");
+        }
+        if (application == null || application.getAssignedOfficer() == null
+                || !actor.getId().equals(application.getAssignedOfficer().getId())) {
+            throw new RuntimeException("This application is not assigned to your officer account");
+        }
+    }
+
+    public void requireCanReadApplication(RegistrationApplication application) {
+        UserAccount actor = currentUser();
+        if (application == null) {
+            throw new RuntimeException("Application not found");
+        }
+        if (actor.getRole() == UserRole.ADMIN) {
+            return;
+        }
+        if (actor.getRole() == UserRole.OFFICER) {
+            if (application.getAssignedOfficer() != null
+                    && actor.getId().equals(application.getAssignedOfficer().getId())) {
+                return;
+            }
+            throw new RuntimeException("This application is not assigned to your officer account");
+        }
+        if (application.getUserAccount() == null
+                || !actor.getId().equals(application.getUserAccount().getId())) {
+            throw new RuntimeException("You are not allowed to access this application");
         }
     }
 

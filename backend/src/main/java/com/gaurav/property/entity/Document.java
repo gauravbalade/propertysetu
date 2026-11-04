@@ -9,6 +9,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -16,24 +17,15 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
 @Entity
 @Table(name = "documents")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
 public class Document {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "application_id", nullable = false)
     private RegistrationApplication application;
 
@@ -54,62 +46,26 @@ public class Document {
     @Column(nullable = false, length = 20)
     private DocumentStatus status;
 
+    @Column(nullable = false)
+    private Integer versionNumber = 1;
 
-
-    public Long getId() {
-        return this.id;
+    public Document() {
     }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public RegistrationApplication getApplication() {
-        return this.application;
-    }
-
-    public void setApplication(RegistrationApplication application) {
-        this.application = application;
-    }
-
-    public String getDocumentType() {
-        return this.documentType;
-    }
-
-    public void setDocumentType(String documentType) {
-        this.documentType = documentType;
-    }
-
-    public String getFileName() {
-        return this.fileName;
-    }
-
-    public void setFileName(String fileName) {
-        this.fileName = fileName;
-    }
-
-    public String getStoredPath() {
-        return this.storedPath;
-    }
-
-    public void setStoredPath(String storedPath) {
-        this.storedPath = storedPath;
-    }
-
-    public LocalDateTime getUploadDate() {
-        return this.uploadDate;
-    }
-
-    public void setUploadDate(LocalDateTime uploadDate) {
-        this.uploadDate = uploadDate;
-    }
-
-    public DocumentStatus getStatus() {
-        return this.status;
-    }
-
-    public void setStatus(DocumentStatus status) {
-        this.status = status;
-    }
-
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public RegistrationApplication getApplication() { return application; }
+    public void setApplication(RegistrationApplication application) { this.application = application; }
+    public String getDocumentType() { return documentType; }
+    public void setDocumentType(String documentType) { this.documentType = documentType; }
+    public String getFileName() { return fileName; }
+    public void setFileName(String fileName) { this.fileName = fileName; }
+    public String getStoredPath() { return storedPath; }
+    public void setStoredPath(String storedPath) { this.storedPath = storedPath; }
+    public LocalDateTime getUploadDate() { return uploadDate; }
+    public void setUploadDate(LocalDateTime uploadDate) { this.uploadDate = uploadDate; }
+    public DocumentStatus getStatus() { return status; }
+    public void setStatus(DocumentStatus status) { this.status = status; }
+    public Integer getVersionNumber() { return versionNumber; }
+    public void setVersionNumber(Integer versionNumber) { this.versionNumber = versionNumber; }
 }

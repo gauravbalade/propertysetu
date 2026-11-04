@@ -8,13 +8,13 @@ import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.gaurav.property.dto.DocumentResponse;
@@ -22,7 +22,6 @@ import com.gaurav.property.entity.Document;
 import com.gaurav.property.entity.RegistrationApplication;
 import com.gaurav.property.enums.ApplicationStatus;
 import com.gaurav.property.enums.DocumentStatus;
-import com.gaurav.property.enums.UserRole;
 import com.gaurav.property.repository.DocumentRepository;
 import com.gaurav.property.repository.RegistrationApplicationRepository;
 
@@ -39,6 +38,7 @@ public class DocumentService {
     private final RegistrationApplicationRepository applicationRepository;
     private final AuthorizationService authorizationService;
     private final AuditService auditService;
+    private final NotificationService notificationService;
 
     @Value("${app.upload.dir}")
     private String uploadDirectory;
@@ -46,13 +46,16 @@ public class DocumentService {
     public DocumentService(DocumentRepository documentRepository,
             RegistrationApplicationRepository applicationRepository,
             AuthorizationService authorizationService,
-            AuditService auditService) {
+            AuditService auditService,
+            NotificationService notificationService) {
         this.documentRepository = documentRepository;
         this.applicationRepository = applicationRepository;
         this.authorizationService = authorizationService;
         this.auditService = auditService;
+        this.notificationService = notificationService;
     }
 
+    @Transactional
     public DocumentResponse uploadDocument(Long applicationId, String documentType, MultipartFile file)
             throws IOException {
         if (file == null || file.isEmpty()) {
@@ -82,53 +85,82 @@ public class DocumentService {
 
         RegistrationApplication application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new RuntimeException("Application not found"));
-        assertCanAccess(application);
-        if (application.getStatus() != ApplicationStatus.DRAFT) {
-            throw new RuntimeException("Documents can only be uploaded while the application is in DRAFT status");
+        authorizationService.requireOwner(application.getUserAccount());
+
+        boolean draft = application.getStatus() == ApplicationStatus.DRAFT;
+        boolean correction = application.getStatus() == ApplicationStatus.NEEDS_CORRECTION;
+        if (!draft && !correction) {
+            throw new RuntimeException("Documents can only be uploaded for a draft or a correction-requested application.");
         }
+
+        Document previous = documentRepository
+                .findFirstByApplicationIdAndDocumentTypeOrderByVersionNumberDesc(applicationId, normalizedType)
+                .orElse(null);
+
+        if (correction && (previous == null || previous.getStatus() != DocumentStatus.REJECTED)) {
+            throw new RuntimeException("Only a document specifically marked for correction can be replaced.");
+        }
+
+        int nextVersion = previous == null || previous.getVersionNumber() == null
+                ? 1 : previous.getVersionNumber() + 1;
 
         Path uploadPath = Paths.get(uploadDirectory).toAbsolutePath().normalize();
         Files.createDirectories(uploadPath);
-        String safeFileName = System.currentTimeMillis() + "_"
-                + originalFileName.replaceAll("[^a-zA-Z0-9._-]", "_");
+        String extension = lowerName.substring(lowerName.lastIndexOf('.'));
+        String safeFileName = UUID.randomUUID().toString().replace("-", "") + extension;
         Path targetPath = uploadPath.resolve(safeFileName).normalize();
         if (!targetPath.startsWith(uploadPath)) {
             throw new RuntimeException("Invalid storage path");
         }
 
-        Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
-
-        Document previous = documentRepository
-                .findFirstByApplicationIdAndDocumentType(applicationId, normalizedType)
-                .orElse(null);
-
-        if (previous != null) {
-            deleteStoredFile(previous.getStoredPath());
-            documentRepository.delete(previous);
+        try (var input = file.getInputStream()) {
+            Files.copy(input, targetPath, StandardCopyOption.REPLACE_EXISTING);
         }
 
-        Document document = new Document();
-        document.setApplication(application);
-        document.setDocumentType(normalizedType);
-        document.setFileName(originalFileName);
-        document.setStoredPath(targetPath.toString());
-        document.setUploadDate(LocalDateTime.now());
-        document.setStatus(DocumentStatus.UPLOADED);
-        Document saved = documentRepository.save(document);
-        auditService.record("DOCUMENT_UPLOADED", "APPLICATION", applicationId,
-                authorizationService.currentUser(), "Uploaded " + normalizedType);
-        return toResponse(saved);
+        try {
+            if (previous != null && previous.getStatus() != DocumentStatus.SUPERSEDED) {
+                previous.setStatus(DocumentStatus.SUPERSEDED);
+                documentRepository.save(previous);
+            }
+
+            Document document = new Document();
+            document.setApplication(application);
+            document.setDocumentType(normalizedType);
+            document.setFileName(originalFileName);
+            document.setStoredPath(targetPath.toString());
+            document.setUploadDate(LocalDateTime.now());
+            document.setStatus(DocumentStatus.UPLOADED);
+            document.setVersionNumber(nextVersion);
+            Document saved = documentRepository.save(document);
+
+            auditService.record("DOCUMENT_VERSION_UPLOADED", "APPLICATION", applicationId,
+                    authorizationService.currentUser(),
+                    "Uploaded " + normalizedType + " version " + nextVersion);
+            return toResponse(saved);
+        } catch (RuntimeException ex) {
+            Files.deleteIfExists(targetPath);
+            throw ex;
+        }
     }
 
+    @Transactional(readOnly = true)
     public List<DocumentResponse> getDocuments(Long applicationId) {
         RegistrationApplication application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new RuntimeException("Application not found"));
-        assertCanAccess(application);
+        authorizationService.requireCanReadApplication(application);
         return documentRepository.findByApplicationId(applicationId).stream()
+                .sorted((left, right) -> {
+                    int typeOrder = left.getDocumentType().compareTo(right.getDocumentType());
+                    if (typeOrder != 0) return typeOrder;
+                    return Integer.compare(
+                            right.getVersionNumber() == null ? 1 : right.getVersionNumber(),
+                            left.getVersionNumber() == null ? 1 : left.getVersionNumber());
+                })
                 .map(this::toResponse)
                 .toList();
     }
 
+    @Transactional
     public DocumentResponse reviewDocument(Long applicationId, Long documentId, DocumentStatus status) {
         if (status != DocumentStatus.VERIFIED && status != DocumentStatus.REJECTED
                 && status != DocumentStatus.UNDER_REVIEW) {
@@ -136,38 +168,58 @@ public class DocumentService {
         }
         RegistrationApplication application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new RuntimeException("Application not found"));
-        requireOfficer();
+        authorizationService.requireAssignedOfficer(application);
+
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new RuntimeException("Document not found"));
         if (!document.getApplication().getId().equals(application.getId())) {
             throw new RuntimeException("Document does not belong to this application");
         }
+        if (document.getStatus() == DocumentStatus.SUPERSEDED) {
+            throw new RuntimeException("A superseded document version cannot be reviewed.");
+        }
+        if (application.getStatus() != ApplicationStatus.PAID
+                && application.getStatus() != ApplicationStatus.UNDER_VERIFICATION
+                && application.getStatus() != ApplicationStatus.RESUBMITTED) {
+            throw new RuntimeException("This application is not currently open for document review.");
+        }
+
         document.setStatus(status);
         Document saved = documentRepository.save(document);
+
+        if (status == DocumentStatus.REJECTED) {
+            application.setStatus(ApplicationStatus.NEEDS_CORRECTION);
+            applicationRepository.save(application);
+            notificationService.sendApplicationStatus(
+                    application.getUserAccount().getEmail(),
+                    application.getApplicationNumber(),
+                    application.getProperty().getPropertyNumber(),
+                    application.getStatus().name(),
+                    "A document needs correction. Open your application history to read the review reason, replace the rejected document, and resubmit.");
+        }
+
         auditService.record("DOCUMENT_REVIEWED", "DOCUMENT", documentId,
                 authorizationService.currentUser(), "Status changed to " + status.name());
-        auditService.record("DOCUMENT_STATUS_CHANGED", "APPLICATION", applicationId,
-                authorizationService.currentUser(),
+        auditService.record(status == DocumentStatus.REJECTED ? "CORRECTION_REQUESTED" : "DOCUMENT_STATUS_CHANGED",
+                "APPLICATION", applicationId, authorizationService.currentUser(),
                 normalizedDocumentType(document.getDocumentType()) + " document marked " + status.name());
         return toResponse(saved);
     }
 
+    @Transactional
     public void removeAllDocumentsForApplication(Long applicationId) throws IOException {
         List<Document> documents = documentRepository.findByApplicationId(applicationId);
         for (Document document : documents) {
-            Path storedPath = Paths.get(document.getStoredPath()).toAbsolutePath().normalize();
-            Path uploadRoot = Paths.get(uploadDirectory).toAbsolutePath().normalize();
-            if (storedPath.startsWith(uploadRoot) && Files.isRegularFile(storedPath)) {
-                Files.deleteIfExists(storedPath);
-            }
+            deleteStoredFile(document.getStoredPath());
             documentRepository.delete(document);
         }
     }
 
+    @Transactional
     public void deleteDocument(Long applicationId, Long documentId) throws IOException {
         RegistrationApplication application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new RuntimeException("Application not found"));
-        assertCanAccess(application);
+        authorizationService.requireOwner(application.getUserAccount());
 
         if (application.getStatus() != ApplicationStatus.DRAFT) {
             throw new RuntimeException("Documents can only be removed while the application is in DRAFT status");
@@ -178,22 +230,21 @@ public class DocumentService {
         if (!document.getApplication().getId().equals(applicationId)) {
             throw new RuntimeException("Document does not belong to this application");
         }
-
-        Path storedPath = Paths.get(document.getStoredPath()).toAbsolutePath().normalize();
-        Path uploadRoot = Paths.get(uploadDirectory).toAbsolutePath().normalize();
-        if (storedPath.startsWith(uploadRoot) && Files.isRegularFile(storedPath)) {
-            Files.deleteIfExists(storedPath);
+        if (document.getStatus() == DocumentStatus.SUPERSEDED) {
+            throw new RuntimeException("Superseded document history cannot be deleted individually.");
         }
 
+        deleteStoredFile(document.getStoredPath());
         documentRepository.delete(document);
         auditService.record("DOCUMENT_REMOVED", "APPLICATION", applicationId,
                 authorizationService.currentUser(), "Removed " + document.getDocumentType());
     }
 
+    @Transactional(readOnly = true)
     public DocumentDownload downloadDocument(Long applicationId, Long documentId) throws IOException {
         RegistrationApplication application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new RuntimeException("Application not found"));
-        assertCanAccess(application);
+        authorizationService.requireCanReadApplication(application);
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new RuntimeException("Document not found"));
         if (!document.getApplication().getId().equals(application.getId())) {
@@ -215,12 +266,10 @@ public class DocumentService {
         if (storedPath == null || storedPath.isBlank()) {
             return;
         }
-
-        Path storedPathValue = Paths.get(storedPath).toAbsolutePath().normalize();
-        Path uploadRoot = Paths.get(uploadDirectory).toAbsolutePath().normalize();
-
-        if (storedPathValue.startsWith(uploadRoot) && Files.isRegularFile(storedPathValue)) {
-            Files.deleteIfExists(storedPathValue);
+        Path file = Paths.get(storedPath).toAbsolutePath().normalize();
+        Path root = Paths.get(uploadDirectory).toAbsolutePath().normalize();
+        if (file.startsWith(root) && Files.isRegularFile(file)) {
+            Files.deleteIfExists(file);
         }
     }
 
@@ -247,34 +296,8 @@ public class DocumentService {
 
     private DocumentResponse toResponse(Document document) {
         return new DocumentResponse(document.getId(), document.getApplication().getId(),
-                document.getDocumentType(), document.getFileName(), document.getUploadDate(), document.getStatus());
-    }
-
-    private void assertCanAccess(RegistrationApplication application) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new RuntimeException("Authentication is required");
-        }
-        if (isOfficer(authentication)) {
-            return;
-        }
-        if (application.getUserAccount() == null
-                || !authentication.getName().equals(application.getUserAccount().getUsername())) {
-            throw new RuntimeException("You are not allowed to access this application");
-        }
-    }
-
-    private void requireOfficer() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated() || !isOfficer(authentication)) {
-            throw new RuntimeException("Officer access is required");
-        }
-    }
-
-    private boolean isOfficer(Authentication authentication) {
-        return authentication.getAuthorities().stream()
-                .anyMatch(authority -> authority.getAuthority().equals("ROLE_" + UserRole.OFFICER.name())
-                        || authority.getAuthority().equals("ROLE_" + UserRole.ADMIN.name()));
+                document.getDocumentType(), document.getFileName(), document.getUploadDate(),
+                document.getStatus(), document.getVersionNumber());
     }
 
     public record DocumentDownload(Resource resource, String fileName, String contentType) {

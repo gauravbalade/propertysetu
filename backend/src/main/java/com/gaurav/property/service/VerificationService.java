@@ -1,7 +1,9 @@
 package com.gaurav.property.service;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,9 +17,10 @@ import com.gaurav.property.entity.UserAccount;
 import com.gaurav.property.entity.Verification;
 import com.gaurav.property.enums.ApplicationStatus;
 import com.gaurav.property.enums.DocumentStatus;
-import com.gaurav.property.enums.UserRole;
+import com.gaurav.property.enums.PaymentStatus;
 import com.gaurav.property.enums.VerificationStatus;
 import com.gaurav.property.repository.DocumentRepository;
+import com.gaurav.property.repository.PaymentRepository;
 import com.gaurav.property.repository.RegistrationApplicationRepository;
 import com.gaurav.property.repository.VerificationRepository;
 
@@ -27,6 +30,7 @@ public class VerificationService {
     private final VerificationRepository verificationRepository;
     private final RegistrationApplicationRepository applicationRepository;
     private final DocumentRepository documentRepository;
+    private final PaymentRepository paymentRepository;
     private final AuthorizationService authorizationService;
     private final AuditService auditService;
     private final NotificationService notificationService;
@@ -35,13 +39,14 @@ public class VerificationService {
             VerificationRepository verificationRepository,
             RegistrationApplicationRepository applicationRepository,
             DocumentRepository documentRepository,
+            PaymentRepository paymentRepository,
             AuthorizationService authorizationService,
             AuditService auditService,
             NotificationService notificationService) {
-
         this.verificationRepository = verificationRepository;
         this.applicationRepository = applicationRepository;
         this.documentRepository = documentRepository;
+        this.paymentRepository = paymentRepository;
         this.authorizationService = authorizationService;
         this.auditService = auditService;
         this.notificationService = notificationService;
@@ -49,13 +54,10 @@ public class VerificationService {
 
     @Transactional
     public VerificationResponse verifyApplication(VerificationRequest request) {
+        RegistrationApplication application = applicationRepository.findById(request.getApplicationId())
+                .orElseThrow(() -> new RuntimeException("Application not found"));
 
-        RegistrationApplication application =
-                applicationRepository.findById(request.getApplicationId())
-                        .orElseThrow(() ->
-                                new RuntimeException("Application not found"));
-
-        authorizationService.requireOfficer();
+        authorizationService.requireAssignedOfficer(application);
         UserAccount officer = authorizationService.currentUser();
 
         if (request.getVerifiedByUserId() != null
@@ -63,65 +65,75 @@ public class VerificationService {
             throw new RuntimeException("The authenticated officer must verify the application");
         }
 
-        if (officer.getRole() != UserRole.OFFICER
-                && officer.getRole() != UserRole.ADMIN) {
-
-            throw new RuntimeException(
-                    "Only an officer or admin can verify applications");
+        ApplicationStatus currentStatus = application.getStatus();
+        if (currentStatus != ApplicationStatus.PAID
+                && currentStatus != ApplicationStatus.UNDER_VERIFICATION
+                && currentStatus != ApplicationStatus.RESUBMITTED) {
+            throw new RuntimeException("Only paid or resubmitted applications can be verified.");
         }
 
-        ApplicationStatus currentStatus = application.getStatus();
-
-        if (currentStatus != ApplicationStatus.PAID
-                && currentStatus != ApplicationStatus.UNDER_VERIFICATION) {
-
-            throw new RuntimeException(
-                    "Only paid applications can be verified");
+        boolean paymentConfirmed = paymentRepository.findByApplicationId(application.getId()).stream()
+                .anyMatch(payment -> payment.getPaymentStatus() == PaymentStatus.SUCCESS
+                        && Boolean.TRUE.equals(payment.getSignatureVerified())
+                        && "RAZORPAY".equalsIgnoreCase(payment.getGatewayReference()));
+        if (!paymentConfirmed) {
+            throw new RuntimeException("A server-confirmed payment is required before verification.");
         }
 
         application.setStatus(ApplicationStatus.UNDER_VERIFICATION);
 
-        Verification verification =
-                verificationRepository
-                        .findByApplicationId(application.getId())
-                        .orElse(new Verification());
+        Map<String, Document> latestByType = new HashMap<>();
+        List<Document> documents = documentRepository.findByApplicationId(application.getId());
+        for (Document document : documents) {
+            if (document.getStatus() == DocumentStatus.SUPERSEDED) continue;
+            Document previous = latestByType.get(document.getDocumentType());
+            if (previous == null || (document.getVersionNumber() != null
+                    && (previous.getVersionNumber() == null
+                    || document.getVersionNumber() > previous.getVersionNumber()))) {
+                latestByType.put(document.getDocumentType(), document);
+            }
+        }
 
+        Verification verification = verificationRepository.findByApplicationId(application.getId())
+                .orElse(new Verification());
         verification.setApplication(application);
         verification.setVerifiedBy(officer);
         verification.setVerificationDate(LocalDateTime.now());
         verification.setStatus(request.getStatus());
-        verification.setRemarks(request.getRemarks());
+        verification.setRemarks(request.getRemarks().trim());
 
         if (request.getStatus() == VerificationStatus.VERIFIED) {
-            List<Document> documents = documentRepository.findByApplicationId(application.getId());
             List<String> requiredTypes = List.of("IDENTITY_PROOF", "ADDRESS_PROOF", "PROPERTY_DOCUMENT");
             List<String> missingOrUnverified = requiredTypes.stream()
-                    .filter(type -> documents.stream().noneMatch(document ->
-                            type.equals(document.getDocumentType())
-                                    && document.getStatus() == DocumentStatus.VERIFIED))
+                    .filter(type -> {
+                        Document latest = latestByType.get(type);
+                        return latest == null || latest.getStatus() != DocumentStatus.VERIFIED;
+                    })
                     .toList();
 
             if (!missingOrUnverified.isEmpty()) {
-                throw new RuntimeException("Verify all required documents before completing the application: "
+                throw new RuntimeException("Verify the latest version of every required document before completing: "
                         + String.join(", ", missingOrUnverified));
             }
-
             application.setStatus(ApplicationStatus.COMPLETED);
-
         } else if (request.getStatus() == VerificationStatus.REJECTED) {
+            if (request.getRemarks() == null || request.getRemarks().isBlank()) {
+                throw new RuntimeException("A reason is required when rejecting an application.");
+            }
             application.setStatus(ApplicationStatus.REJECTED);
         }
 
         applicationRepository.save(application);
         Verification saved = verificationRepository.save(verification);
         auditService.record("APPLICATION_VERIFIED", "APPLICATION", application.getId(),
-                officer, "Verification status: " + request.getStatus().name());
+                officer, "Verification status: " + request.getStatus().name()
+                        + ". Remarks: " + request.getRemarks().trim());
 
         String nextStep = request.getStatus() == VerificationStatus.VERIFIED
-                ? "The application has completed the academic verification workflow."
+                ? "The academic verification workflow is complete. This is not an official government registration certificate."
                 : request.getStatus() == VerificationStatus.REJECTED
-                        ? "Review the officer remarks in your application workspace."
-                        : "Your application remains in the verification workflow.";
+                        ? "The application was rejected in the academic workflow. Review the officer's reason in your account."
+                        : "Your application remains in the assigned officer's review queue.";
 
         notificationService.sendApplicationStatus(
                 application.getUserAccount().getEmail(),
@@ -129,6 +141,7 @@ public class VerificationService {
                 application.getProperty().getPropertyNumber(),
                 application.getStatus().name(),
                 nextStep);
+
         ApplicationResponse applicationResponse = new ApplicationResponse(
                 application.getId(),
                 application.getApplicationNumber(),
@@ -140,7 +153,11 @@ public class VerificationService {
                 application.getPurpose(),
                 application.getApplicationDate(),
                 application.getStatus(),
-                application.getCreatedAt());
+                application.getCreatedAt(),
+                application.getAssignedOfficer() == null ? null : application.getAssignedOfficer().getId(),
+                application.getAssignedOfficer() == null ? null : application.getAssignedOfficer().getUsername(),
+                application.getAssignedAt());
+
         return new VerificationResponse(
                 saved.getId(),
                 applicationResponse,

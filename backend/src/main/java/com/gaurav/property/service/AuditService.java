@@ -42,9 +42,7 @@ public class AuditService {
     public List<AuditEventResponse> applicationHistory(Long applicationId) {
         var application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new RuntimeException("Application not found"));
-
-        // Officers/admins may review any application; applicants may only see their own.
-        authorizationService.requireOwner(application.getUserAccount());
+        authorizationService.requireCanReadApplication(application);
 
         return auditEventRepository.findByEntityTypeAndEntityIdOrderByOccurredAtDesc(
                         "APPLICATION", String.valueOf(applicationId))

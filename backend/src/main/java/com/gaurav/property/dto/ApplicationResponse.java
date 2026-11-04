@@ -16,5 +16,8 @@ public record ApplicationResponse(
         String purpose,
         LocalDate applicationDate,
         ApplicationStatus status,
-        LocalDateTime createdAt) {
+        LocalDateTime createdAt,
+        Long assignedOfficerId,
+        String assignedOfficerUsername,
+        LocalDateTime assignedAt) {
 }

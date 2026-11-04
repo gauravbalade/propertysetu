@@ -6,6 +6,8 @@ public enum ApplicationStatus {
     PAYMENT_PENDING,
     PAID,
     UNDER_VERIFICATION,
+    NEEDS_CORRECTION,
+    RESUBMITTED,
     VERIFIED,
     REJECTED,
     COMPLETED

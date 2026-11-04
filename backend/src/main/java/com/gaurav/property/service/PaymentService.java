@@ -41,6 +41,9 @@ public class PaymentService {
     @Value("${RAZORPAY_KEY_SECRET:}")
     private String razorpayKeySecret;
 
+    @Value("${RAZORPAY_WEBHOOK_SECRET:}")
+    private String razorpayWebhookSecret;
+
     public PaymentService(PaymentRepository paymentRepository,
             RegistrationApplicationRepository applicationRepository,
             AuthorizationService authorizationService,
@@ -134,7 +137,7 @@ public class PaymentService {
     public PaymentResponse getLatestPayment(Long applicationId) {
         RegistrationApplication application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new RuntimeException("Application not found"));
-        authorizationService.requireOwner(application.getUserAccount());
+        authorizationService.requireCanReadApplication(application);
 
         return paymentRepository.findByApplicationId(applicationId).stream()
                 .max((left, right) -> {
@@ -289,7 +292,7 @@ public class PaymentService {
             throw new RuntimeException("Missing Razorpay webhook signature.");
         }
 
-        String webhookSecret = System.getenv("RAZORPAY_WEBHOOK_SECRET");
+        String webhookSecret = razorpayWebhookSecret;
         if (webhookSecret == null || webhookSecret.isBlank()) {
             throw new RuntimeException("Razorpay webhook verification is not configured.");
         }
@@ -302,44 +305,43 @@ public class PaymentService {
             JSONObject body = new JSONObject(payload);
             String event = body.optString("event");
 
-            JSONObject entity = null;
-            if (event.startsWith("payment.") && body.has("payload")) {
-                JSONObject paymentPayload = body.getJSONObject("payload").optJSONObject("payment");
-                entity = paymentPayload == null ? null : paymentPayload.optJSONObject("entity");
-            } else if ("order.paid".equals(event) && body.has("payload")) {
-                JSONObject orderPayload = body.getJSONObject("payload").optJSONObject("order");
-                entity = orderPayload == null ? null : orderPayload.optJSONObject("entity");
+            // Only a signed payment.captured event is accepted as authoritative.
+            // An order.paid payload contains an order ID, not necessarily a payment ID.
+            if (!"payment.captured".equals(event) || !body.has("payload")) {
+                return;
             }
-
+            JSONObject paymentPayload = body.getJSONObject("payload").optJSONObject("payment");
+            JSONObject entity = paymentPayload == null ? null : paymentPayload.optJSONObject("entity");
             if (entity == null) {
                 return;
             }
 
             String orderId = entity.optString("order_id");
-            if (orderId.isBlank()) {
-                orderId = entity.optString("id");
+            String paymentId = entity.optString("id");
+            if (orderId.isBlank() || paymentId.isBlank()) {
+                return;
             }
 
             Payment payment = paymentRepository.findByGatewayOrderId(orderId).orElse(null);
             if (payment == null || payment.getPaymentStatus() == PaymentStatus.SUCCESS) {
-                return;
+                return; // duplicate webhook deliveries are idempotent
             }
 
-            long amount = entity.optLong("amount", entity.optLong("amount_paid", 0));
-            if (amount != 50000L) {
+            long amount = entity.optLong("amount", 0);
+            String currency = entity.optString("currency", "INR");
+            if (amount != 50000L || !"INR".equalsIgnoreCase(currency)) {
                 auditService.record("RAZORPAY_WEBHOOK_REJECTED", "PAYMENT", payment.getId(),
-                        null, "Webhook amount did not match the application fee");
+                        null, "Webhook amount or currency did not match the application fee");
                 return;
             }
 
-            String paymentStatus = entity.optString("status");
-            if (!"captured".equalsIgnoreCase(paymentStatus) && !"order.paid".equalsIgnoreCase(event)) {
+            if (!"captured".equalsIgnoreCase(entity.optString("status"))) {
                 return;
             }
 
             payment.setPaymentStatus(PaymentStatus.SUCCESS);
             payment.setSignatureVerified(true);
-            payment.setGatewayPaymentId(entity.optString("id", null));
+            payment.setGatewayPaymentId(paymentId);
             payment.setPaymentDate(LocalDateTime.now());
 
             RegistrationApplication application = payment.getApplication();
@@ -393,7 +395,10 @@ public class PaymentService {
                 application.getPurpose(),
                 application.getApplicationDate(),
                 application.getStatus(),
-                application.getCreatedAt());
+                application.getCreatedAt(),
+                application.getAssignedOfficer() == null ? null : application.getAssignedOfficer().getId(),
+                application.getAssignedOfficer() == null ? null : application.getAssignedOfficer().getUsername(),
+                application.getAssignedAt());
 
         return new PaymentResponse(
                 payment.getId(),
